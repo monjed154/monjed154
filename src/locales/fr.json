@@ -1,0 +1,27 @@
+{
+  "app": { "name": "StockFlow", "tagline": "Gestion intelligente des stocks" },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "inventory": "Inventaire",
+    "sales": "Ventes",
+    "pos": "Vente rapide",
+    "customers": "Clients",
+    "debts": "Dettes",
+    "reports": "Rapports",
+    "settings": "Paramètres"
+  },
+  "common": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "view": "Voir",
+    "add": "Ajouter",
+    "search": "Rechercher",
+    "loading": "Chargement...",
+    "noData": "Aucune donnée",
+    "currency": "DA",
+    "back": "Retour",
+    "total": "Total"
+  }
+}

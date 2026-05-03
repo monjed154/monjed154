@@ -1,0 +1,27 @@
+{
+  "app": { "name": "StockFlow", "tagline": "Smart inventory management" },
+  "nav": {
+    "dashboard": "Dashboard",
+    "inventory": "Inventory",
+    "sales": "Sales",
+    "pos": "Quick Sale",
+    "customers": "Customers",
+    "debts": "Debts",
+    "reports": "Reports",
+    "settings": "Settings"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "add": "Add",
+    "search": "Search",
+    "loading": "Loading...",
+    "noData": "No data",
+    "currency": "DZD",
+    "back": "Back",
+    "total": "Total"
+  }
+}
