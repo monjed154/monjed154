@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>PLUMMET — المَهبَط</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #000;
+      overflow: hidden;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      touch-action: none;
+      user-select: none;
+    }
+
+    #game-canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* ─── HUD ─── */
+    #hud {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      padding: 18px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #score-block { text-align: center; }
+
+    #score-label {
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: rgba(255,255,255,0.45);
+      text-transform: uppercase;
+    }
+
+    #score {
+      font-size: 42px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+      text-shadow: 0 0 20px rgba(0,200,255,0.8);
+      transition: transform 0.1s;
+    }
+
+    #score.pulse-anim { transform: scale(1.25); }
+
+    #best-block { text-align: left; }
+    #best-label { font-size: 10px; letter-spacing: 2px; color: rgba(255,255,255,0.35); text-transform: uppercase; }
+    #best { font-size: 20px; font-weight: 700; color: rgba(255,255,255,0.6); }
+
+    /* energy bar */
+    #energy-wrap {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #energy-label {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: rgba(255,255,255,0.4);
+      text-transform: uppercase;
+    }
+
+    #energy-bar-bg {
+      width: 160px;
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    #energy-bar {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #00c8ff, #a855f7);
+      border-radius: 3px;
+      transition: width 0.15s;
+      box-shadow: 0 0 8px #00c8ff;
+    }
+
+    /* combo pop */
+    #combo-pop {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      font-size: 48px;
+      font-weight: 900;
+      color: #ffd700;
+      text-shadow: 0 0 30px #ffd700, 0 0 60px #ff8c00;
+      pointer-events: none;
+      z-index: 20;
+      transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s;
+      opacity: 0;
+      white-space: nowrap;
+    }
+
+    #combo-pop.show {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+
+    /* perfect-pulse */
+    #perfect-flash {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(0,200,255,0.35), transparent 70%);
+      pointer-events: none;
+      z-index: 5;
+      opacity: 0;
+      transition: opacity 0.05s;
+    }
+    #perfect-flash.flash { opacity: 1; }
+
+    /* ─── Screens ─── */
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 30;
+      background: rgba(0,0,0,0.82);
+      backdrop-filter: blur(8px);
+    }
+
+    .screen.hidden { display: none; }
+
+    /* ── Start Screen ── */
+    #start-screen {
+      gap: 0;
+      background: radial-gradient(ellipse at center, rgba(0,30,60,0.95) 0%, rgba(0,0,0,0.98) 100%);
+    }
+
+    .game-logo {
+      font-size: 72px;
+      font-weight: 900;
+      letter-spacing: -2px;
+      line-height: 1;
+      background: linear-gradient(135deg, #00c8ff 0%, #a855f7 50%, #ff6b9d 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: none;
+      animation: logoGlow 2s ease-in-out infinite alternate;
+    }
+
+    .game-subtitle {
+      font-size: 14px;
+      letter-spacing: 6px;
+      color: rgba(255,255,255,0.45);
+      text-transform: uppercase;
+      margin-top: 6px;
+      margin-bottom: 52px;
+    }
+
+    @keyframes logoGlow {
+      from { filter: drop-shadow(0 0 20px rgba(0,200,255,0.5)); }
+      to   { filter: drop-shadow(0 0 40px rgba(168,85,247,0.7)); }
+    }
+
+    .instructions {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 52px;
+      text-align: center;
+    }
+
+    .inst-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      justify-content: center;
+    }
+
+    .inst-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .inst-text {
+      font-size: 14px;
+      color: rgba(255,255,255,0.7);
+      text-align: right;
+    }
+
+    .btn-start {
+      background: linear-gradient(135deg, #00c8ff, #a855f7);
+      border: none;
+      border-radius: 50px;
+      padding: 18px 64px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      letter-spacing: 2px;
+      box-shadow: 0 0 30px rgba(0,200,255,0.4), 0 0 60px rgba(168,85,247,0.2);
+      transition: transform 0.15s, box-shadow 0.15s;
+      pointer-events: all;
+      text-transform: uppercase;
+    }
+
+    .btn-start:hover { transform: scale(1.04); box-shadow: 0 0 40px rgba(0,200,255,0.6), 0 0 80px rgba(168,85,247,0.3); }
+    .btn-start:active { transform: scale(0.97); }
+
+    /* ── Game Over Screen ── */
+    #gameover-screen { gap: 10px; }
+
+    .go-title {
+      font-size: 48px;
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    .go-dist {
+      font-size: 80px;
+      font-weight: 900;
+      color: #00c8ff;
+      line-height: 1;
+      text-shadow: 0 0 30px #00c8ff;
+    }
+
+    .go-dist-label {
+      font-size: 12px;
+      letter-spacing: 4px;
+      color: rgba(255,255,255,0.4);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .go-best {
+      font-size: 16px;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 36px;
+    }
+
+    .go-best span { color: #ffd700; font-weight: 700; }
+
+    .new-best-badge {
+      background: linear-gradient(135deg, #ffd700, #ff8c00);
+      color: #000;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      padding: 4px 14px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    .new-best-badge.show { display: block; }
+
+    /* ─── Death overlay ─── */
+    #death-flash {
+      position: fixed;
+      inset: 0;
+      background: rgba(255, 50, 50, 0.4);
+      pointer-events: none;
+      z-index: 25;
+      opacity: 0;
+      transition: opacity 0.05s;
+    }
+    #death-flash.flash { opacity: 1; }
+
+    /* ─── Biome banner ─── */
+    #biome-banner {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+      z-index: 15;
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+
+    #biome-banner.show { opacity: 1; }
+
+    #biome-name {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: #fff;
+      text-shadow: 0 0 20px currentColor;
+    }
+
+    #biome-sub {
+      font-size: 12px;
+      letter-spacing: 6px;
+      color: rgba(255,255,255,0.5);
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* distance milestone */
+    #milestone {
+      position: fixed;
+      top: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 14px;
+      letter-spacing: 3px;
+      color: rgba(255,255,255,0.6);
+      text-transform: uppercase;
+      pointer-events: none;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    #milestone.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="score-block">
+      <div id="score-label">المسافة</div>
+      <div id="score">0</div>
+    </div>
+    <div id="best-block">
+      <div id="best-label">أفضل</div>
+      <div id="best">0</div>
+    </div>
+  </div>
+
+  <div id="energy-wrap">
+    <div id="energy-label">طاقة النبضة</div>
+    <div id="energy-bar-bg"><div id="energy-bar"></div></div>
+  </div>
+
+  <div id="combo-pop">×0</div>
+  <div id="perfect-flash"></div>
+  <div id="death-flash"></div>
+  <div id="biome-banner"><div id="biome-name"></div><div id="biome-sub">— المنطقة الجديدة —</div></div>
+  <div id="milestone"></div>
+
+  <!-- Start Screen -->
+  <div id="start-screen" class="screen">
+    <div class="game-logo">PLUMMET</div>
+    <div class="game-subtitle">المَهبَط</div>
+    <div class="instructions">
+      <div class="inst-row">
+        <div class="inst-icon">↔</div>
+        <div class="inst-text">اسحب يميناً أو يساراً لتوجيه الكرة</div>
+      </div>
+      <div class="inst-row">
+        <div class="inst-icon">✦</div>
+        <div class="inst-text">انقر للنبضة — اكشف العقبات في الظلام</div>
+      </div>
+      <div class="inst-row">
+        <div class="inst-icon">◆</div>
+        <div class="inst-text">اجمع الكريستال لتعبئة الطاقة</div>
+      </div>
+    </div>
+    <button class="btn-start" id="btn-start">ابدأ اللعبة</button>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div id="gameover-screen" class="screen hidden">
+    <div class="go-title">انتهت اللعبة</div>
+    <div class="new-best-badge" id="new-best-badge">🏆 رقم قياسي جديد!</div>
+    <div class="go-dist" id="go-dist">0</div>
+    <div class="go-dist-label">متر</div>
+    <div class="go-best">أفضل نتيجة: <span id="go-best-val">0</span> م</div>
+    <button class="btn-start" id="btn-retry">العب مجدداً</button>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    // ─── Constants ───────────────────────────────────────────────
+    const TUNNEL_RADIUS   = 4.5;
+    const TUNNEL_SEGS     = 7;
+    const TUNNEL_LENGTH   = 300;   // one chunk length
+    const BALL_RADIUS     = 0.28;
+    const BASE_SPEED      = 18;
+    const SPEED_INCREMENT = 0.6;   // per 100m
+    const PULSE_COST      = 0.28;
+    const ENERGY_REGEN    = 0.012; // per frame (0.7/s @60fps)
+    const CRYSTAL_ENERGY  = 0.35;
+    const FOG_NEAR_BASE   = 8;
+    const FOG_FAR_BASE    = 28;
+    const PULSE_FOG_FAR   = 58;
+    const PULSE_DURATION  = 0.55;  // seconds
+    const SWIPE_SENSITIVITY = 0.018;
+    const LATERAL_SMOOTHING = 0.14;
+    const CAMERA_TILT_AMOUNT= 0.12;
+    const TRAIL_COUNT       = 26;
+
+    // Biomes
+    const BIOMES = [
+      { name: 'النفق الكوني',   sub: 'السايبر الأزرق',   wallColor: 0x003366, glowColor: 0x00c8ff, fogColor: 0x001122, ballColor: 0x00e5ff, crystalColor: 0xffd700 },
+      { name: 'الكهف البركاني', sub: 'الأعماق المتوهجة',  wallColor: 0x330d00, glowColor: 0xff4500, fogColor: 0x1a0500, ballColor: 0xff6030, crystalColor: 0xffaa00 },
+      { name: 'الجليد الأبدي',  sub: 'البرد المتبلور',    wallColor: 0x001133, glowColor: 0x88aaff, fogColor: 0x000a1a, ballColor: 0xaaddff, crystalColor: 0x00ffee },
+      { name: 'الكون الذهبي',   sub: 'ما وراء الفضاء',   wallColor: 0x1a1000, glowColor: 0xffd700, fogColor: 0x0a0800, ballColor: 0xffd700, crystalColor: 0x00ffcc },
+    ];
+
+    // ─── State ───────────────────────────────────────────────────
+    let gameState = 'start'; // start | playing | dead
+    let score = 0, bestScore = 0;
+    let energy = 1.0;
+    let combo = 0, comboTimer = 0;
+    let pulsing = false, pulseTimer = 0;
+    let speed = BASE_SPEED;
+    let totalDist = 0;
+    let currentBiomeIdx = 0;
+    let lastBiomeDist = 0;
+    let ballVelX = 0;
+    let targetX = 0;
+    let isDead = false;
+    let slowMo = 1.0, slowMoTimer = 0;
+    let nearMiss = false, nearMissTimer = 0;
+
+    // ─── Three.js Setup ──────────────────────────────────────────
+    const canvas = document.getElementById('game-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = false;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 300);
+
+    // ─── Fog ─────────────────────────────────────────────────────
+    scene.fog = new THREE.Fog(0x001122, FOG_NEAR_BASE, FOG_FAR_BASE);
+    scene.background = new THREE.Color(0x000a14);
+
+    // ─── Lighting ────────────────────────────────────────────────
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.08);
+    scene.add(ambientLight);
+
+    const ballLight = new THREE.PointLight(0x00c8ff, 3.5, 12);
+    scene.add(ballLight);
+
+    const pulseLight = new THREE.PointLight(0x00c8ff, 0, 40);
+    scene.add(pulseLight);
+
+    // ─── Ball ────────────────────────────────────────────────────
+    const ballGeo = new THREE.SphereGeometry(BALL_RADIUS, 24, 24);
+    const ballMat = new THREE.MeshStandardMaterial({
+      color: 0x00e5ff,
+      emissive: 0x00b8e0,
+      emissiveIntensity: 1.4,
+      roughness: 0.1,
+      metalness: 0.6,
+    });
+    const ballMesh = new THREE.Mesh(ballGeo, ballMat);
+    ballMesh.position.set(0, 0, 0);
+    scene.add(ballMesh);
+
+    // ─── Trail ───────────────────────────────────────────────────
+    const trailParticles = [];
+    for (let i = 0; i < TRAIL_COUNT; i++) {
+      const s = (1 - i / TRAIL_COUNT) * 0.18;
+      const tGeo = new THREE.SphereGeometry(s, 6, 6);
+      const tMat = new THREE.MeshBasicMaterial({ color: 0x00c8ff, transparent: true, opacity: (1 - i / TRAIL_COUNT) * 0.55 });
+      const t = new THREE.Mesh(tGeo, tMat);
+      t.visible = false;
+      scene.add(t);
+      trailParticles.push({ mesh: t, life: 0 });
+    }
+    let trailIdx = 0;
+    let trailTimer = 0;
+
+    // ─── Shockwave ring ──────────────────────────────────────────
+    const shockGeo = new THREE.RingGeometry(0.1, 0.3, 32);
+    const shockMat = new THREE.MeshBasicMaterial({ color: 0x00c8ff, transparent: true, opacity: 0, side: THREE.DoubleSide });
+    const shockRing = new THREE.Mesh(shockGeo, shockMat);
+    shockRing.rotation.x = Math.PI / 2;
+    scene.add(shockRing);
+    let shockScale = 1, shockLife = 0;
+
+    // ─── Tunnel chunks ───────────────────────────────────────────
+    const chunks = [];
+    let chunkZ = 0; // next spawn Z (positive = in front of camera)
+
+    function buildChunk(startZ) {
+      const group = new THREE.Group();
+
+      // Tube geometry (open-ended cylinder)
+      const tubeGeo = new THREE.CylinderGeometry(TUNNEL_RADIUS, TUNNEL_RADIUS, TUNNEL_LENGTH, TUNNEL_SEGS * 2, 1, true);
+      const b = currentBiomeIdx < BIOMES.length ? BIOMES[currentBiomeIdx] : BIOMES[0];
+      const tubeMat = new THREE.MeshStandardMaterial({
+        color: b.wallColor,
+        emissive: b.glowColor,
+        emissiveIntensity: 0.18,
+        side: THREE.BackSide,
+        roughness: 0.9,
+        metalness: 0.0,
+        wireframe: false,
+      });
+
+      // Wireframe overlay for neon edge effect
+      const wireMat = new THREE.MeshBasicMaterial({ color: b.glowColor, wireframe: true, transparent: true, opacity: 0.12 });
+      const wireMesh = new THREE.Mesh(tubeGeo, wireMat);
+      const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
+      tubeMesh.rotation.x = Math.PI / 2;
+      wireMesh.rotation.x = Math.PI / 2;
+
+      group.add(tubeMesh);
+      group.add(wireMesh);
+
+      // Neon rings every 20 units
+      for (let z = 10; z < TUNNEL_LENGTH; z += 20) {
+        const ringGeo = new THREE.TorusGeometry(TUNNEL_RADIUS, 0.05, 6, TUNNEL_SEGS * 2);
+        const ringMat = new THREE.MeshBasicMaterial({ color: b.glowColor, transparent: true, opacity: 0.35 });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.z = z - TUNNEL_LENGTH / 2;
+        group.add(ring);
+      }
+
+      group.position.set(0, 0, startZ + TUNNEL_LENGTH / 2);
+      group.rotation.x = 0;
+      scene.add(group);
+
+      const obstacles = spawnObstacles(startZ, TUNNEL_LENGTH);
+      const crystals = spawnCrystals(startZ, TUNNEL_LENGTH);
+
+      chunks.push({ group, startZ, endZ: startZ + TUNNEL_LENGTH, obstacles, crystals });
+    }
+
+    // ─── Obstacle system ─────────────────────────────────────────
+    const obstaclePool = [];
+    function getObstacle() {
+      return obstaclePool.pop() || createObstacleMesh();
+    }
+
+    function createObstacleMesh() {
+      const group = new THREE.Group();
+
+      // Wall with gap
+      const wallLeft = new THREE.Mesh(
+        new THREE.BoxGeometry(1.6, 0.45, 0.3),
+        new THREE.MeshStandardMaterial({ color: 0xff2244, emissive: 0xff0033, emissiveIntensity: 0.8, roughness: 0.3 })
+      );
+      const wallRight = wallLeft.clone();
+      group.add(wallLeft, wallRight);
+      group.userData.wallLeft = wallLeft;
+      group.userData.wallRight = wallRight;
+      group.userData.type = 'wall';
+
+      // Spinning cube
+      const spinCube = new THREE.Mesh(
+        new THREE.BoxGeometry(0.55, 0.55, 0.55),
+        new THREE.MeshStandardMaterial({ color: 0xff4400, emissive: 0xff2200, emissiveIntensity: 1.2, roughness: 0.2, metalness: 0.5 })
+      );
+      group.userData.spinCube = spinCube;
+
+      scene.add(group);
+      return group;
+    }
+
+    function spawnObstacles(startZ, length) {
+      const obs = [];
+      const densityBase = 0.9 + (totalDist / 500) * 0.4;
+
+      let z = startZ + 30;
+      while (z < startZ + length - 20) {
+        if (Math.random() < densityBase) {
+          const type = Math.random() < 0.62 ? 'wall' : 'cube';
+          const obj = getObstacle();
+          obj.userData.type = type;
+          obj.userData.active = true;
+
+          if (type === 'wall') {
+            const gapPos = (Math.random() - 0.5) * (TUNNEL_RADIUS * 1.1);
+            const gapWidth = 1.0 + Math.random() * 0.6 - (totalDist / 800) * 0.25;
+            obj.userData.wallLeft.visible = true;
+            obj.userData.wallRight.visible = true;
+            obj.userData.spinCube.visible = false;
+            if (obj.userData.spinCube.parent === obj) obj.remove(obj.userData.spinCube);
+
+            obj.userData.wallLeft.position.set(gapPos - gapWidth / 2 - 0.8, 0, 0);
+            obj.userData.wallRight.position.set(gapPos + gapWidth / 2 + 0.8, 0, 0);
+            obj.userData.gapPos = gapPos;
+            obj.userData.gapWidth = gapWidth;
+          } else {
+            obj.userData.wallLeft.visible = false;
+            obj.userData.wallRight.visible = false;
+            if (obj.userData.spinCube.parent !== obj) obj.add(obj.userData.spinCube);
+            obj.userData.spinCube.visible = true;
+            obj.userData.spinCube.position.set((Math.random() - 0.5) * TUNNEL_RADIUS * 1.5, 0, 0);
+            obj.userData.spinCube.rotation.set(0, 0, 0);
+          }
+
+          obj.position.set(0, 0, -(z));
+          obs.push({ mesh: obj, z });
+        }
+        z += 14 + Math.random() * 14;
+      }
+      return obs;
+    }
+
+    // ─── Crystal system ──────────────────────────────────────────
+    const crystalPool = [];
+
+    function getCrystal() {
+      return crystalPool.pop() || createCrystalMesh();
+    }
+
+    function createCrystalMesh() {
+      const geo = new THREE.OctahedronGeometry(0.22, 0);
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0xffd700, emissive: 0xffaa00,
+        emissiveIntensity: 2.0, roughness: 0.0, metalness: 0.8,
+        transparent: true, opacity: 0.92,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      const light = new THREE.PointLight(0xffd700, 1.8, 4);
+      mesh.add(light);
+      scene.add(mesh);
+      return mesh;
+    }
+
+    function spawnCrystals(startZ, length) {
+      const crys = [];
+      let z = startZ + 20;
+      while (z < startZ + length - 10) {
+        if (Math.random() < 0.28) {
+          const c = getCrystal();
+          c.position.set((Math.random() - 0.5) * TUNNEL_RADIUS * 1.3, 0, -(z));
+          c.visible = true;
+          c.userData.collected = false;
+          c.userData.z = z;
+          crys.push({ mesh: c, z, collected: false });
+        }
+        z += 18 + Math.random() * 18;
+      }
+      return crys;
+    }
+
+    // ─── Camera ──────────────────────────────────────────────────
+    camera.position.set(0, 1.2, 5);
+    camera.lookAt(0, 0, -10);
+    let camTilt = 0;
+
+    // ─── Input handling ──────────────────────────────────────────
+    let touchStartX = 0, touchLastX = 0, isSwiping = false;
+    let touchDx = 0;
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      touchStartX = e.touches[0].clientX;
+      touchLastX = touchStartX;
+      isSwiping = false;
+      touchDx = 0;
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - touchLastX;
+      touchDx = dx;
+      touchLastX = e.touches[0].clientX;
+      if (Math.abs(e.touches[0].clientX - touchStartX) > 8) isSwiping = true;
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      if (!isSwiping && gameState === 'playing') {
+        doPulse();
+      }
+      touchDx = 0;
+      isSwiping = false;
+    }, { passive: false });
+
+    // Mouse / desktop fallback
+    let mouseDown = false, mouseStartX = 0, mouseLastX = 0, mouseSwiping = false, mouseDx = 0;
+
+    canvas.addEventListener('mousedown', (e) => {
+      mouseDown = true;
+      mouseStartX = e.clientX;
+      mouseLastX = e.clientX;
+      mouseSwiping = false;
+      mouseDx = 0;
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!mouseDown) return;
+      mouseDx = e.clientX - mouseLastX;
+      mouseLastX = e.clientX;
+      if (Math.abs(e.clientX - mouseStartX) > 8) mouseSwiping = true;
+    });
+
+    canvas.addEventListener('mouseup', () => {
+      if (!mouseSwiping && gameState === 'playing') doPulse();
+      mouseDown = false;
+      mouseDx = 0;
+      mouseSwiping = false;
+    });
+
+    canvas.addEventListener('mouseleave', () => { mouseDown = false; mouseDx = 0; });
+
+    // ─── Pulse ───────────────────────────────────────────────────
+    function doPulse() {
+      if (energy < PULSE_COST) return;
+      energy = Math.max(0, energy - PULSE_COST);
+      pulsing = true;
+      pulseTimer = PULSE_DURATION;
+
+      // Shockwave
+      shockLife = 1.0;
+      shockScale = 1;
+      shockRing.position.copy(ballMesh.position);
+      shockMat.opacity = 0.8;
+
+      // Perfect pulse check (obstacle within 3m in front)
+      checkPerfectPulse();
+      updateEnergyUI();
+    }
+
+    function checkPerfectPulse() {
+      const bz = -ballMesh.position.z;
+      for (const chunk of chunks) {
+        for (const obs of chunk.obstacles) {
+          const d = obs.z - bz;
+          if (d > 0 && d < 4.5) {
+            triggerPerfectPulse();
+            return;
+          }
+        }
+      }
+    }
+
+    function triggerPerfectPulse() {
+      slowMo = 0.28;
+      slowMoTimer = 0.55;
+      combo++;
+      showCombo();
+
+      const flash = document.getElementById('perfect-flash');
+      flash.classList.add('flash');
+      setTimeout(() => flash.classList.remove('flash'), 120);
+    }
+
+    // ─── Biome management ────────────────────────────────────────
+    function checkBiomeTransition() {
+      const newBiomeIdx = Math.floor(totalDist / 600) % BIOMES.length;
+      if (newBiomeIdx !== currentBiomeIdx) {
+        currentBiomeIdx = newBiomeIdx;
+        const b = BIOMES[currentBiomeIdx];
+        scene.fog.color.setHex(b.fogColor);
+        scene.background.setHex(b.fogColor);
+        ballMat.color.setHex(b.ballColor);
+        ballMat.emissive.setHex(b.ballColor);
+        ballLight.color.setHex(b.glowColor);
+        showBiomeBanner(b);
+      }
+    }
+
+    function showBiomeBanner(b) {
+      const banner = document.getElementById('biome-banner');
+      document.getElementById('biome-name').textContent = b.name;
+      document.getElementById('biome-name').style.color = '#' + b.glowColor.toString(16).padStart(6, '0');
+      banner.classList.add('show');
+      setTimeout(() => banner.classList.remove('show'), 2400);
+    }
+
+    // ─── Chunk management ────────────────────────────────────────
+    function manageChunks() {
+      const camZ = -camera.position.z;
+
+      // Spawn new chunks ahead
+      while (chunkZ < camZ + TUNNEL_LENGTH * 1.5) {
+        buildChunk(chunkZ);
+        chunkZ += TUNNEL_LENGTH;
+      }
+
+      // Remove chunks behind camera
+      for (let i = chunks.length - 1; i >= 0; i--) {
+        if (chunks[i].endZ < camZ - 20) {
+          // Return obstacles/crystals to pool
+          for (const obs of chunks[i].obstacles) {
+            obs.mesh.userData.active = false;
+            obstaclePool.push(obs.mesh);
+          }
+          for (const c of chunks[i].crystals) {
+            if (!c.collected) crystalPool.push(c.mesh);
+            c.mesh.visible = false;
+          }
+          scene.remove(chunks[i].group);
+          chunks.splice(i, 1);
+        }
+      }
+    }
+
+    // ─── Collision detection ─────────────────────────────────────
+    function checkCollisions() {
+      const bx = ballMesh.position.x;
+      const bz = -ballMesh.position.z; // world Z of ball
+      const margin = BALL_RADIUS + 0.06;
+
+      for (const chunk of chunks) {
+        for (const obs of chunk.obstacles) {
+          if (!obs.mesh.userData.active) continue;
+          const dz = Math.abs(obs.z - bz);
+          if (dz > 1.2) continue;
+
+          if (obs.mesh.userData.type === 'wall') {
+            const gapPos = obs.mesh.userData.gapPos;
+            const gapWidth = obs.mesh.userData.gapWidth;
+            const inGap = Math.abs(bx - gapPos) < (gapWidth / 2 - margin * 0.7);
+            if (!inGap) {
+              triggerDeath();
+              return;
+            } else if (dz < 0.5) {
+              // Near miss
+              nearMiss = true;
+              nearMissTimer = 0.3;
+              combo++;
+              showCombo();
+            }
+          } else {
+            const cubeX = obs.mesh.userData.spinCube.position.x + obs.mesh.position.x;
+            if (Math.abs(bx - cubeX) < margin + 0.3) {
+              triggerDeath();
+              return;
+            }
+          }
+        }
+
+        // Crystals
+        for (const c of chunk.crystals) {
+          if (c.collected) continue;
+          const dz = Math.abs(c.z - bz);
+          const dx = Math.abs(c.mesh.position.x - bx);
+          if (dz < 0.6 && dx < 0.55) {
+            c.collected = true;
+            c.mesh.visible = false;
+            energy = Math.min(1.0, energy + CRYSTAL_ENERGY);
+            combo++;
+            showCombo();
+            updateEnergyUI();
+          }
+        }
+      }
+    }
+
+    // ─── Death ───────────────────────────────────────────────────
+    function triggerDeath() {
+      if (isDead) return;
+      isDead = true;
+      gameState = 'dead';
+
+      const flash = document.getElementById('death-flash');
+      flash.classList.add('flash');
+      setTimeout(() => flash.classList.remove('flash'), 200);
+
+      // Screen shake (camera offset)
+      let shakes = 0;
+      const shakeInterval = setInterval(() => {
+        camera.position.x = (Math.random() - 0.5) * 0.3;
+        camera.position.y = 1.2 + (Math.random() - 0.5) * 0.2;
+        shakes++;
+        if (shakes > 8) {
+          clearInterval(shakeInterval);
+          camera.position.x = 0;
+          camera.position.y = 1.2;
+          showGameOver();
+        }
+      }, 40);
+    }
+
+    function showGameOver() {
+      const dist = Math.floor(totalDist);
+      const isNew = dist > bestScore;
+      if (isNew) bestScore = dist;
+
+      document.getElementById('go-dist').textContent = dist;
+      document.getElementById('go-best-val').textContent = bestScore;
+      document.getElementById('new-best-badge').classList.toggle('show', isNew);
+
+      document.getElementById('gameover-screen').classList.remove('hidden');
+    }
+
+    // ─── UI helpers ──────────────────────────────────────────────
+    function updateEnergyUI() {
+      document.getElementById('energy-bar').style.width = (energy * 100) + '%';
+    }
+
+    function updateScoreUI() {
+      const el = document.getElementById('score');
+      el.textContent = Math.floor(totalDist);
+      document.getElementById('best').textContent = Math.max(Math.floor(totalDist), bestScore);
+    }
+
+    let comboClearTimer = null;
+    function showCombo() {
+      if (combo <= 1) return;
+      const el = document.getElementById('combo-pop');
+      el.textContent = '×' + combo;
+      el.classList.remove('show');
+      void el.offsetWidth;
+      el.classList.add('show');
+      clearTimeout(comboClearTimer);
+      comboClearTimer = setTimeout(() => el.classList.remove('show'), 900);
+    }
+
+    function showMilestone(text) {
+      const el = document.getElementById('milestone');
+      el.textContent = text;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 1800);
+    }
+
+    // ─── Game init ───────────────────────────────────────────────
+    function initGame() {
+      isDead = false;
+      score = 0;
+      energy = 1.0;
+      combo = 0;
+      pulsing = false;
+      pulseTimer = 0;
+      totalDist = 0;
+      speed = BASE_SPEED;
+      currentBiomeIdx = 0;
+      lastBiomeDist = 0;
+      slowMo = 1.0;
+      slowMoTimer = 0;
+      ballVelX = 0;
+      targetX = 0;
+
+      // Clear chunks
+      for (const ch of chunks) {
+        scene.remove(ch.group);
+        for (const obs of ch.obstacles) { obs.mesh.userData.active = false; obstaclePool.push(obs.mesh); }
+        for (const c of ch.crystals) { c.mesh.visible = false; crystalPool.push(c.mesh); }
+      }
+      chunks.length = 0;
+      chunkZ = 0;
+
+      ballMesh.position.set(0, 0, 0);
+      camera.position.set(0, 1.2, 5);
+
+      // Reset biome
+      const b = BIOMES[0];
+      scene.fog.color.setHex(b.fogColor);
+      scene.background.setHex(b.fogColor);
+      ballMat.color.setHex(b.ballColor);
+      ballMat.emissive.setHex(b.ballColor);
+      ballLight.color.setHex(b.glowColor);
+
+      // Pre-spawn
+      manageChunks();
+
+      updateEnergyUI();
+      updateScoreUI();
+    }
+
+    // ─── Clock & loop ────────────────────────────────────────────
+    const clock = new THREE.Clock();
+    let prevMilestone = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const rawDt = Math.min(clock.getDelta(), 0.05);
+
+      if (gameState !== 'playing') {
+        renderer.render(scene, camera);
+        return;
+      }
+
+      // Slow-motion
+      let dt = rawDt;
+      if (slowMoTimer > 0) {
+        slowMoTimer -= rawDt;
+        slowMo = slowMoTimer > 0 ? 0.28 : 1.0;
+      }
+      dt *= slowMo;
+
+      // ── Speed escalation
+      speed = BASE_SPEED + (totalDist / 100) * SPEED_INCREMENT;
+      speed = Math.min(speed, 60);
+
+      // ── Move ball forward (camera forward = -z)
+      const moveZ = speed * dt;
+      ballMesh.position.z -= moveZ;
+      totalDist += moveZ;
+
+      // ── Lateral movement
+      const inputDx = (touchDx + mouseDx) * SWIPE_SENSITIVITY * (speed / BASE_SPEED);
+      targetX += inputDx;
+      targetX = Math.max(-TUNNEL_RADIUS + BALL_RADIUS + 0.5, Math.min(TUNNEL_RADIUS - BALL_RADIUS - 0.5, targetX));
+      ballMesh.position.x += (targetX - ballMesh.position.x) * LATERAL_SMOOTHING;
+      touchDx *= 0.7;
+      mouseDx *= 0.7;
+
+      // ── Camera follow
+      camTilt += (inputDx * CAMERA_TILT_AMOUNT - camTilt) * 0.1;
+      camera.position.x += (ballMesh.position.x * 0.85 - camera.position.x) * 0.12;
+      camera.position.z = ballMesh.position.z + 5;
+      camera.position.y = 1.2;
+      camera.rotation.z = -camTilt;
+      camera.lookAt(ballMesh.position.x * 0.4, 0.1, ballMesh.position.z - 14);
+
+      // ── Ball lights
+      ballLight.position.copy(ballMesh.position);
+      pulseLight.position.copy(ballMesh.position);
+
+      // ── Trail
+      trailTimer -= dt;
+      if (trailTimer <= 0) {
+        trailTimer = 0.018;
+        const t = trailParticles[trailIdx % TRAIL_COUNT];
+        t.mesh.position.copy(ballMesh.position);
+        t.mesh.visible = true;
+        t.life = 1.0;
+        trailIdx++;
+      }
+      for (const t of trailParticles) {
+        if (!t.mesh.visible) continue;
+        t.life -= dt * 3.2;
+        if (t.life <= 0) { t.mesh.visible = false; continue; }
+        t.mesh.material.opacity = t.life * 0.5;
+        t.mesh.scale.setScalar(t.life);
+      }
+
+      // ── Pulse
+      if (pulsing) {
+        pulseTimer -= dt;
+        const t = pulseTimer / PULSE_DURATION;
+        scene.fog.far = FOG_NEAR_BASE + (FOG_FAR_BASE - FOG_NEAR_BASE) * t + (PULSE_FOG_FAR - FOG_FAR_BASE) * (1 - t);
+        pulseLight.intensity = (1 - t) * 6;
+        if (pulseTimer <= 0) {
+          pulsing = false;
+          scene.fog.far = FOG_FAR_BASE;
+          pulseLight.intensity = 0;
+        }
+      } else {
+        scene.fog.far += (FOG_FAR_BASE - scene.fog.far) * 0.05;
+      }
+
+      // ── Shockwave
+      if (shockLife > 0) {
+        shockLife -= dt * 2.4;
+        shockScale += dt * 14;
+        shockRing.scale.setScalar(shockScale);
+        shockRing.position.copy(ballMesh.position);
+        shockMat.opacity = Math.max(0, shockLife * 0.7);
+        if (shockLife <= 0) shockMat.opacity = 0;
+      }
+
+      // ── Spin cubes
+      for (const chunk of chunks) {
+        for (const obs of chunk.obstacles) {
+          if (obs.mesh.userData.type === 'cube' && obs.mesh.userData.spinCube.visible) {
+            obs.mesh.userData.spinCube.rotation.x += dt * 2.2;
+            obs.mesh.userData.spinCube.rotation.y += dt * 1.6;
+          }
+        }
+        // Animate crystals
+        for (const c of chunk.crystals) {
+          if (!c.collected) {
+            c.mesh.rotation.y += dt * 2.0;
+            c.mesh.position.y = Math.sin(Date.now() * 0.002 + c.z) * 0.2;
+          }
+        }
+      }
+
+      // ── Energy regen
+      energy = Math.min(1.0, energy + ENERGY_REGEN * dt * 60);
+      updateEnergyUI();
+
+      // ── Collision
+      checkCollisions();
+
+      // ── Chunks
+      manageChunks();
+
+      // ── Biome
+      checkBiomeTransition();
+
+      // ── Score / milestones
+      updateScoreUI();
+      const m100 = Math.floor(totalDist / 100);
+      if (m100 > prevMilestone) {
+        prevMilestone = m100;
+        showMilestone('🏁 ' + (m100 * 100) + ' متر!');
+        speed; // Speed already escalates, no special effect needed
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // ─── Button handlers ─────────────────────────────────────────
+    document.getElementById('btn-start').addEventListener('click', () => {
+      document.getElementById('start-screen').classList.add('hidden');
+      gameState = 'playing';
+      initGame();
+    });
+
+    document.getElementById('btn-retry').addEventListener('click', () => {
+      document.getElementById('gameover-screen').classList.add('hidden');
+      gameState = 'playing';
+      initGame();
+    });
+
+    // ─── Resize ──────────────────────────────────────────────────
+    window.addEventListener('resize', () => {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    });
+
+    // ─── Start ───────────────────────────────────────────────────
+    animate();
+  </script>
+</body>
+</html>
