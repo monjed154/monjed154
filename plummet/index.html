@@ -1,1152 +1,942 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>PLUMMET — المَهبَط</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+<title>PLUMMET — المَهبَط</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;touch-action:none;user-select:none}
+#c{display:block;width:100vw;height:100vh}
 
-    body {
-      background: #000;
-      overflow: hidden;
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      touch-action: none;
-      user-select: none;
-    }
+/* ── HUD ── */
+#hud{position:fixed;top:0;left:0;right:0;padding:16px 20px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:10}
+#score-wrap{text-align:center}
+#score-lbl{font-size:10px;letter-spacing:3px;color:rgba(255,255,255,.4);text-transform:uppercase}
+#score{font-size:44px;font-weight:900;color:#fff;line-height:1;text-shadow:0 0 24px rgba(0,210,255,.9)}
+#best-wrap{text-align:left}
+#best-lbl{font-size:9px;letter-spacing:2px;color:rgba(255,255,255,.3);text-transform:uppercase}
+#best-val{font-size:22px;font-weight:700;color:rgba(255,255,255,.55)}
 
-    #game-canvas {
-      display: block;
-      width: 100vw;
-      height: 100vh;
-    }
+/* lives */
+#lives{position:fixed;top:20px;left:50%;transform:translateX(-50%);display:flex;gap:8px;pointer-events:none;z-index:10}
+.heart{font-size:22px;transition:transform .2s,opacity .2s;filter:drop-shadow(0 0 6px #ff4466)}
+.heart.dead{opacity:.2;transform:scale(.8);filter:none}
 
-    /* ─── HUD ─── */
-    #hud {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      padding: 18px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      pointer-events: none;
-      z-index: 10;
-    }
+/* energy */
+#energy-wrap{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:5px;pointer-events:none;z-index:10}
+#energy-lbl{font-size:9px;letter-spacing:3px;color:rgba(255,255,255,.35);text-transform:uppercase}
+#energy-bg{width:140px;height:5px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
+#energy-bar{height:100%;width:100%;background:linear-gradient(90deg,#00c8ff,#a855f7);border-radius:3px;transition:width .1s;box-shadow:0 0 8px #00c8ff}
 
-    #score-block { text-align: center; }
+/* speed */
+#speed-wrap{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;z-index:10}
+#speed-val{font-size:11px;letter-spacing:2px;color:rgba(255,255,255,.35);text-transform:uppercase}
 
-    #score-label {
-      font-size: 11px;
-      letter-spacing: 3px;
-      color: rgba(255,255,255,0.45);
-      text-transform: uppercase;
-    }
+/* combo */
+#combo{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);font-size:52px;font-weight:900;color:#ffd700;text-shadow:0 0 30px #ffd700,0 0 60px #ff8c00;pointer-events:none;z-index:20;opacity:0;transition:transform .12s cubic-bezier(.34,1.56,.64,1),opacity .25s;white-space:nowrap}
+#combo.show{transform:translate(-50%,-50%) scale(1);opacity:1}
 
-    #score {
-      font-size: 42px;
-      font-weight: 800;
-      color: #fff;
-      line-height: 1;
-      text-shadow: 0 0 20px rgba(0,200,255,0.8);
-      transition: transform 0.1s;
-    }
+/* milestone */
+#milestone{position:fixed;top:98px;left:50%;transform:translateX(-50%);font-size:13px;letter-spacing:3px;color:rgba(255,255,255,.55);text-transform:uppercase;pointer-events:none;z-index:10;opacity:0;transition:opacity .3s}
+#milestone.show{opacity:1}
 
-    #score.pulse-anim { transform: scale(1.25); }
+/* biome */
+#biome{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;z-index:15;opacity:0;transition:opacity .5s}
+#biome.show{opacity:1}
+#biome-name{font-size:26px;font-weight:900;letter-spacing:4px;text-transform:uppercase;color:#fff;text-shadow:0 0 20px currentColor}
+#biome-sub{font-size:11px;letter-spacing:5px;color:rgba(255,255,255,.45);margin-top:4px;text-transform:uppercase}
 
-    #best-block { text-align: left; }
-    #best-label { font-size: 10px; letter-spacing: 2px; color: rgba(255,255,255,0.35); text-transform: uppercase; }
-    #best { font-size: 20px; font-weight: 700; color: rgba(255,255,255,0.6); }
+/* overlays */
+#perfect-flash,#death-flash{position:fixed;inset:0;pointer-events:none;z-index:8;opacity:0;transition:opacity .05s}
+#perfect-flash{background:radial-gradient(circle at center,rgba(0,200,255,.4),transparent 70%)}
+#death-flash{background:radial-gradient(circle at center,rgba(255,40,40,.5),transparent 70%)}
+#perfect-flash.on,#death-flash.on{opacity:1}
 
-    /* energy bar */
-    #energy-wrap {
-      position: fixed;
-      bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      pointer-events: none;
-      z-index: 10;
-    }
+/* ── Screens ── */
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:30;background:rgba(0,0,0,.85);backdrop-filter:blur(10px)}
+.screen.hidden{display:none}
+#start-screen{background:radial-gradient(ellipse at center,rgba(0,22,50,.95),rgba(0,0,0,.98))}
+.logo{font-size:76px;font-weight:900;letter-spacing:-3px;line-height:1;background:linear-gradient(135deg,#00c8ff 0%,#a855f7 50%,#ff6b9d 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:glow 2.2s ease-in-out infinite alternate}
+@keyframes glow{from{filter:drop-shadow(0 0 18px rgba(0,200,255,.6))}to{filter:drop-shadow(0 0 42px rgba(168,85,247,.8))}}
+.tagline{font-size:13px;letter-spacing:6px;color:rgba(255,255,255,.4);text-transform:uppercase;margin-top:6px;margin-bottom:48px}
+.how{display:flex;flex-direction:column;gap:12px;margin-bottom:48px}
+.how-row{display:flex;align-items:center;gap:14px;justify-content:center}
+.how-icon{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);flex-shrink:0}
+.how-text{font-size:13px;color:rgba(255,255,255,.65);text-align:right}
+.btn{background:linear-gradient(135deg,#00c8ff,#a855f7);border:none;border-radius:50px;padding:17px 60px;font-size:17px;font-weight:700;color:#fff;cursor:pointer;letter-spacing:2px;box-shadow:0 0 28px rgba(0,200,255,.4);transition:transform .15s,box-shadow .15s;pointer-events:all;text-transform:uppercase}
+.btn:hover{transform:scale(1.04);box-shadow:0 0 42px rgba(0,200,255,.6)}
+.btn:active{transform:scale(.97)}
 
-    #energy-label {
-      font-size: 10px;
-      letter-spacing: 3px;
-      color: rgba(255,255,255,0.4);
-      text-transform: uppercase;
-    }
-
-    #energy-bar-bg {
-      width: 160px;
-      height: 6px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 3px;
-      overflow: hidden;
-    }
-
-    #energy-bar {
-      height: 100%;
-      width: 100%;
-      background: linear-gradient(90deg, #00c8ff, #a855f7);
-      border-radius: 3px;
-      transition: width 0.15s;
-      box-shadow: 0 0 8px #00c8ff;
-    }
-
-    /* combo pop */
-    #combo-pop {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%) scale(0);
-      font-size: 48px;
-      font-weight: 900;
-      color: #ffd700;
-      text-shadow: 0 0 30px #ffd700, 0 0 60px #ff8c00;
-      pointer-events: none;
-      z-index: 20;
-      transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s;
-      opacity: 0;
-      white-space: nowrap;
-    }
-
-    #combo-pop.show {
-      transform: translate(-50%, -50%) scale(1);
-      opacity: 1;
-    }
-
-    /* perfect-pulse */
-    #perfect-flash {
-      position: fixed;
-      inset: 0;
-      background: radial-gradient(circle at center, rgba(0,200,255,0.35), transparent 70%);
-      pointer-events: none;
-      z-index: 5;
-      opacity: 0;
-      transition: opacity 0.05s;
-    }
-    #perfect-flash.flash { opacity: 1; }
-
-    /* ─── Screens ─── */
-    .screen {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 30;
-      background: rgba(0,0,0,0.82);
-      backdrop-filter: blur(8px);
-    }
-
-    .screen.hidden { display: none; }
-
-    /* ── Start Screen ── */
-    #start-screen {
-      gap: 0;
-      background: radial-gradient(ellipse at center, rgba(0,30,60,0.95) 0%, rgba(0,0,0,0.98) 100%);
-    }
-
-    .game-logo {
-      font-size: 72px;
-      font-weight: 900;
-      letter-spacing: -2px;
-      line-height: 1;
-      background: linear-gradient(135deg, #00c8ff 0%, #a855f7 50%, #ff6b9d 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      text-shadow: none;
-      animation: logoGlow 2s ease-in-out infinite alternate;
-    }
-
-    .game-subtitle {
-      font-size: 14px;
-      letter-spacing: 6px;
-      color: rgba(255,255,255,0.45);
-      text-transform: uppercase;
-      margin-top: 6px;
-      margin-bottom: 52px;
-    }
-
-    @keyframes logoGlow {
-      from { filter: drop-shadow(0 0 20px rgba(0,200,255,0.5)); }
-      to   { filter: drop-shadow(0 0 40px rgba(168,85,247,0.7)); }
-    }
-
-    .instructions {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      margin-bottom: 52px;
-      text-align: center;
-    }
-
-    .inst-row {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      justify-content: center;
-    }
-
-    .inst-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      background: rgba(255,255,255,0.07);
-      border: 1px solid rgba(255,255,255,0.12);
-    }
-
-    .inst-text {
-      font-size: 14px;
-      color: rgba(255,255,255,0.7);
-      text-align: right;
-    }
-
-    .btn-start {
-      background: linear-gradient(135deg, #00c8ff, #a855f7);
-      border: none;
-      border-radius: 50px;
-      padding: 18px 64px;
-      font-size: 18px;
-      font-weight: 700;
-      color: #fff;
-      cursor: pointer;
-      letter-spacing: 2px;
-      box-shadow: 0 0 30px rgba(0,200,255,0.4), 0 0 60px rgba(168,85,247,0.2);
-      transition: transform 0.15s, box-shadow 0.15s;
-      pointer-events: all;
-      text-transform: uppercase;
-    }
-
-    .btn-start:hover { transform: scale(1.04); box-shadow: 0 0 40px rgba(0,200,255,0.6), 0 0 80px rgba(168,85,247,0.3); }
-    .btn-start:active { transform: scale(0.97); }
-
-    /* ── Game Over Screen ── */
-    #gameover-screen { gap: 10px; }
-
-    .go-title {
-      font-size: 48px;
-      font-weight: 900;
-      color: #fff;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-    }
-
-    .go-dist {
-      font-size: 80px;
-      font-weight: 900;
-      color: #00c8ff;
-      line-height: 1;
-      text-shadow: 0 0 30px #00c8ff;
-    }
-
-    .go-dist-label {
-      font-size: 12px;
-      letter-spacing: 4px;
-      color: rgba(255,255,255,0.4);
-      text-transform: uppercase;
-      margin-bottom: 8px;
-    }
-
-    .go-best {
-      font-size: 16px;
-      color: rgba(255,255,255,0.5);
-      margin-bottom: 36px;
-    }
-
-    .go-best span { color: #ffd700; font-weight: 700; }
-
-    .new-best-badge {
-      background: linear-gradient(135deg, #ffd700, #ff8c00);
-      color: #000;
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 2px;
-      padding: 4px 14px;
-      border-radius: 20px;
-      text-transform: uppercase;
-      margin-bottom: 12px;
-      display: none;
-    }
-
-    .new-best-badge.show { display: block; }
-
-    /* ─── Death overlay ─── */
-    #death-flash {
-      position: fixed;
-      inset: 0;
-      background: rgba(255, 50, 50, 0.4);
-      pointer-events: none;
-      z-index: 25;
-      opacity: 0;
-      transition: opacity 0.05s;
-    }
-    #death-flash.flash { opacity: 1; }
-
-    /* ─── Biome banner ─── */
-    #biome-banner {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      pointer-events: none;
-      z-index: 15;
-      opacity: 0;
-      transition: opacity 0.5s;
-    }
-
-    #biome-banner.show { opacity: 1; }
-
-    #biome-name {
-      font-size: 28px;
-      font-weight: 900;
-      letter-spacing: 4px;
-      text-transform: uppercase;
-      color: #fff;
-      text-shadow: 0 0 20px currentColor;
-    }
-
-    #biome-sub {
-      font-size: 12px;
-      letter-spacing: 6px;
-      color: rgba(255,255,255,0.5);
-      text-transform: uppercase;
-      margin-top: 4px;
-    }
-
-    /* distance milestone */
-    #milestone {
-      position: fixed;
-      top: 100px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 14px;
-      letter-spacing: 3px;
-      color: rgba(255,255,255,0.6);
-      text-transform: uppercase;
-      pointer-events: none;
-      z-index: 10;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    #milestone.show { opacity: 1; }
-  </style>
+#gameover-screen{gap:8px}
+.go-title{font-size:46px;font-weight:900;color:#fff;letter-spacing:3px;text-transform:uppercase}
+.go-dist{font-size:84px;font-weight:900;color:#00c8ff;line-height:1;text-shadow:0 0 30px #00c8ff}
+.go-m{font-size:12px;letter-spacing:4px;color:rgba(255,255,255,.4);text-transform:uppercase;margin-bottom:6px}
+.go-best{font-size:15px;color:rgba(255,255,255,.45);margin-bottom:32px}
+.go-best span{color:#ffd700;font-weight:700}
+#new-best{background:linear-gradient(135deg,#ffd700,#ff8c00);color:#000;font-size:11px;font-weight:800;letter-spacing:2px;padding:3px 12px;border-radius:20px;text-transform:uppercase;display:none;margin-bottom:8px}
+#new-best.show{display:block}
+</style>
 </head>
 <body>
-  <canvas id="game-canvas"></canvas>
+<canvas id="c"></canvas>
 
-  <!-- HUD -->
-  <div id="hud">
-    <div id="score-block">
-      <div id="score-label">المسافة</div>
-      <div id="score">0</div>
-    </div>
-    <div id="best-block">
-      <div id="best-label">أفضل</div>
-      <div id="best">0</div>
-    </div>
+<div id="hud">
+  <div id="score-wrap"><div id="score-lbl">المسافة</div><div id="score">0</div></div>
+  <div id="best-wrap"><div id="best-lbl">أفضل</div><div id="best-val">0</div></div>
+</div>
+
+<div id="lives">
+  <span class="heart" id="h0">♥</span>
+  <span class="heart" id="h1">♥</span>
+  <span class="heart" id="h2">♥</span>
+</div>
+
+<div id="energy-wrap">
+  <div id="energy-lbl">طاقة النبضة</div>
+  <div id="energy-bg"><div id="energy-bar"></div></div>
+</div>
+<div id="speed-wrap"><div id="speed-val">0 م/ث</div></div>
+
+<div id="combo"></div>
+<div id="milestone"></div>
+<div id="biome"><div id="biome-name"></div><div id="biome-sub">— منطقة جديدة —</div></div>
+<div id="perfect-flash"></div>
+<div id="death-flash"></div>
+
+<div id="start-screen" class="screen">
+  <div class="logo">PLUMMET</div>
+  <div class="tagline">المَهبَط — اسقط. تفادَ. ابقَ حياً.</div>
+  <div class="how">
+    <div class="how-row"><div class="how-icon">↔</div><div class="how-text">اسحب يميناً أو يساراً للتحرك</div></div>
+    <div class="how-row"><div class="how-icon">✦</div><div class="how-text">انقر / Space لنبضة تكشف العقبات</div></div>
+    <div class="how-row"><div class="how-icon">◆</div><div class="how-text">اجمع الكريستال — شحن + مضاعف كومبو</div></div>
+    <div class="how-row"><div class="how-icon">♥</div><div class="how-text">3 أرواح — اضربة ← تخسر روحاً</div></div>
   </div>
+  <button class="btn" id="btn-start">ابدأ اللعبة</button>
+</div>
 
-  <div id="energy-wrap">
-    <div id="energy-label">طاقة النبضة</div>
-    <div id="energy-bar-bg"><div id="energy-bar"></div></div>
-  </div>
+<div id="gameover-screen" class="screen hidden">
+  <div class="go-title">انتهت اللعبة</div>
+  <div id="new-best">🏆 رقم قياسي جديد!</div>
+  <div class="go-dist" id="go-dist">0</div>
+  <div class="go-m">متر</div>
+  <div class="go-best">أفضل نتيجة: <span id="go-best-val">0</span> م</div>
+  <button class="btn" id="btn-retry">العب مجدداً</button>
+</div>
 
-  <div id="combo-pop">×0</div>
-  <div id="perfect-flash"></div>
-  <div id="death-flash"></div>
-  <div id="biome-banner"><div id="biome-name"></div><div id="biome-sub">— المنطقة الجديدة —</div></div>
-  <div id="milestone"></div>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
 
-  <!-- Start Screen -->
-  <div id="start-screen" class="screen">
-    <div class="game-logo">PLUMMET</div>
-    <div class="game-subtitle">المَهبَط</div>
-    <div class="instructions">
-      <div class="inst-row">
-        <div class="inst-icon">↔</div>
-        <div class="inst-text">اسحب يميناً أو يساراً لتوجيه الكرة</div>
-      </div>
-      <div class="inst-row">
-        <div class="inst-icon">✦</div>
-        <div class="inst-text">انقر للنبضة — اكشف العقبات في الظلام</div>
-      </div>
-      <div class="inst-row">
-        <div class="inst-icon">◆</div>
-        <div class="inst-text">اجمع الكريستال لتعبئة الطاقة</div>
-      </div>
-    </div>
-    <button class="btn-start" id="btn-start">ابدأ اللعبة</button>
-  </div>
+// ══════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════
+const C = {
+  TR:4.4, BR:0.24,
+  SPD0:17, SPDMAX:56, SPDRAMP:0.75,
+  LATMAX:3.3, LATSMOOTH:0.13,
+  CAM_BACK:4.6, CAM_Y:0.75, CAM_LOOK:14,
+  FOG_N:7, FOG_F:30, PULSE_FOG:68,
+  PULSE_DUR:0.52, PULSE_COST:0.28,
+  ENERGY_REG:0.0085,
+  CRYSTAL_E:0.33,
+  INVTIME:2.3,
+  SHAKE_DEC:9,
+  LIVES:3,
+  BIOME_M:650,
+  CHUNK_LEN:240,
+};
 
-  <!-- Game Over Screen -->
-  <div id="gameover-screen" class="screen hidden">
-    <div class="go-title">انتهت اللعبة</div>
-    <div class="new-best-badge" id="new-best-badge">🏆 رقم قياسي جديد!</div>
-    <div class="go-dist" id="go-dist">0</div>
-    <div class="go-dist-label">متر</div>
-    <div class="go-best">أفضل نتيجة: <span id="go-best-val">0</span> م</div>
-    <button class="btn-start" id="btn-retry">العب مجدداً</button>
-  </div>
+const BIOMES = [
+  {name:'النفق الكوني',   fog:0x000c18,wall:0x001028,glow:0x00c8ff,ball:0x00e0ff,obs:0xff1a44,crystal:0xffd700},
+  {name:'الكهف البركاني',fog:0x0f0400, wall:0x280800,glow:0xff4400,ball:0xff5c1a,obs:0x00ffcc,crystal:0xffbb00},
+  {name:'الجليد الأبدي', fog:0x000816, wall:0x000c20,glow:0x7799ff,ball:0xaaccff,obs:0xff44aa,crystal:0x00ffe8},
+  {name:'الكون الذهبي',  fog:0x070500, wall:0x140e00,glow:0xffcc00,ball:0xffd700,obs:0xff00bb,crystal:0x00ffcc},
+];
 
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let G = {};
+
+function resetG() {
+  G = {
+    phase:'start', dist:0, speed:C.SPD0, energy:1,
+    lives:C.LIVES, combo:0,
+    best: +localStorage.getItem('pm_best')||0,
+    biome:0,
+    pulsing:false, pulseT:0,
+    invinc:false,  invincT:0,
+    shakeI:0,
+    slowmo:1,      slowmoT:0,
+    targetX:0,     lastMile:0,
+  };
+}
+resetG();
+
+// ══════════════════════════════════════════
+// RENDERER + SCENE
+// ══════════════════════════════════════════
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+
+const scene  = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 380);
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight), 1.4, 0.45, 0.18);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+scene.fog = new THREE.Fog(BIOMES[0].fog, C.FOG_N, C.FOG_F);
+scene.background = new THREE.Color(BIOMES[0].fog);
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.06));
+const ballLight  = new THREE.PointLight(0x00c8ff, 4.5, 15);
+const pulseLight = new THREE.PointLight(0x00c8ff, 0, 55);
+scene.add(ballLight, pulseLight);
+
+// ══════════════════════════════════════════
+// BALL
+// ══════════════════════════════════════════
+const ballMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(C.BR, 28, 28),
+  new THREE.MeshStandardMaterial({color:0x00e0ff,emissive:0x00b0e0,emissiveIntensity:2.2,roughness:.05,metalness:.4})
+);
+scene.add(ballMesh);
+
+const ballGlow = new THREE.Mesh(
+  new THREE.SphereGeometry(C.BR*2.2, 14, 14),
+  new THREE.MeshBasicMaterial({color:0x00a8e0,transparent:true,opacity:.14,side:THREE.BackSide})
+);
+scene.add(ballGlow);
+
+const shockMat = new THREE.MeshBasicMaterial({color:0x00c8ff,transparent:true,opacity:0,side:THREE.DoubleSide});
+const shockRing = new THREE.Mesh(new THREE.RingGeometry(.1,.45,32), shockMat);
+shockRing.rotation.x = Math.PI/2;
+scene.add(shockRing);
+let shockLife=0, shockScale=1;
+
+// ══════════════════════════════════════════
+// SPRITE TEXTURE  (shared by trail + particles)
+// ══════════════════════════════════════════
+function makeSprite() {
+  const cv=document.createElement('canvas'); cv.width=cv.height=64;
+  const ctx=cv.getContext('2d');
+  const g=ctx.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0,'rgba(255,255,255,1)');
+  g.addColorStop(.5,'rgba(255,255,255,.6)');
+  g.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,64,64);
+  return new THREE.CanvasTexture(cv);
+}
+const sprite = makeSprite();
+
+// ══════════════════════════════════════════
+// TRAIL  (GPU Points)
+// ══════════════════════════════════════════
+const TRAIL=32;
+const trailPos  = new Float32Array(TRAIL*3);
+const trailSize = new Float32Array(TRAIL);
+const trailGeo  = new THREE.BufferGeometry();
+trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos,3));
+trailGeo.setAttribute('size',     new THREE.BufferAttribute(trailSize,1));
+
+const trailMat = new THREE.ShaderMaterial({
+  uniforms:{tex:{value:sprite}},
+  vertexShader:`
+    attribute float size;
+    void main(){
+      vec4 mv=modelViewMatrix*vec4(position,1.);
+      gl_PointSize=size*(180./-mv.z);
+      gl_Position=projectionMatrix*mv;
+    }`,
+  fragmentShader:`
+    uniform sampler2D tex;
+    void main(){ gl_FragColor=texture2D(tex,gl_PointCoord); }`,
+  blending:THREE.AdditiveBlending, depthWrite:false, transparent:true,
+});
+scene.add(new THREE.Points(trailGeo, trailMat));
+let trailHead=0, trailTimer=0;
+
+function updateTrail(dt) {
+  trailTimer-=dt;
+  if(trailTimer<=0){
+    trailTimer=0.018;
+    const i=(trailHead%TRAIL)*3;
+    trailPos[i]=ballMesh.position.x;
+    trailPos[i+1]=ballMesh.position.y;
+    trailPos[i+2]=ballMesh.position.z;
+    trailHead++;
+  }
+  for(let i=0;i<TRAIL;i++) trailSize[i]=Math.max(0,(1-(trailHead-i)/TRAIL)*9);
+  trailGeo.attributes.position.needsUpdate=true;
+  trailGeo.attributes.size.needsUpdate=true;
+}
+
+// ══════════════════════════════════════════
+// PARTICLES  (burst effects)
+// ══════════════════════════════════════════
+const PMAX=90;
+const pPos=new Float32Array(PMAX*3), pVel=new Float32Array(PMAX*3);
+const pSize=new Float32Array(PMAX),  pLife=new Float32Array(PMAX);
+const pCol=new Float32Array(PMAX*3);
+const pGeo=new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos,3));
+pGeo.setAttribute('size',     new THREE.BufferAttribute(pSize,1));
+pGeo.setAttribute('color',    new THREE.BufferAttribute(pCol,3));
+
+const pMat=new THREE.ShaderMaterial({
+  uniforms:{tex:{value:sprite}},
+  vertexShader:`
+    attribute float size; attribute vec3 color; varying vec3 vc;
+    void main(){
+      vc=color;
+      vec4 mv=modelViewMatrix*vec4(position,1.);
+      gl_PointSize=size*(240./-mv.z);
+      gl_Position=projectionMatrix*mv;
+    }`,
+  fragmentShader:`
+    uniform sampler2D tex; varying vec3 vc;
+    void main(){ gl_FragColor=vec4(vc,1.)*texture2D(tex,gl_PointCoord); }`,
+  blending:THREE.AdditiveBlending, depthWrite:false, transparent:true,
+});
+scene.add(new THREE.Points(pGeo, pMat));
+
+function burst(pos, col1, col2, n=45) {
+  const c1=new THREE.Color(col1), c2=new THREE.Color(col2);
+  let done=0;
+  for(let i=0;i<PMAX&&done<n;i++){
+    if(pLife[i]>0) continue;
+    const j=i*3, sp=1.5+Math.random()*9;
+    const th=Math.random()*Math.PI*2, ph=Math.random()*Math.PI;
+    pPos[j]  =pos.x+(Math.random()-.5)*.4;
+    pPos[j+1]=pos.y+(Math.random()-.5)*.4;
+    pPos[j+2]=pos.z+(Math.random()-.5)*.4;
+    pVel[j]  =Math.sin(ph)*Math.cos(th)*sp;
+    pVel[j+1]=Math.sin(ph)*Math.sin(th)*sp*.6;
+    pVel[j+2]=Math.cos(ph)*sp;
+    const c=Math.random()<.5?c1:c2;
+    pCol[j]=c.r; pCol[j+1]=c.g; pCol[j+2]=c.b;
+    pSize[i]=3+Math.random()*9;
+    pLife[i]=.7+Math.random()*.65;
+    done++;
+  }
+}
+
+function updateParticles(dt) {
+  for(let i=0;i<PMAX;i++){
+    if(pLife[i]<=0){ pSize[i]=0; continue; }
+    pLife[i]-=dt;
+    const j=i*3;
+    pPos[j]  +=pVel[j]*dt;
+    pPos[j+1]+=pVel[j+1]*dt;
+    pPos[j+2]+=pVel[j+2]*dt;
+    pVel[j+1]-=6*dt;
+    pSize[i]=Math.max(0,pLife[i]*11);
+  }
+  pGeo.attributes.position.needsUpdate=true;
+  pGeo.attributes.size.needsUpdate=true;
+}
+
+// ══════════════════════════════════════════
+// SOUND  (Web Audio API — procedural)
+// ══════════════════════════════════════════
+let actx=null, ambNodes=[];
+
+function initAudio(){ if(!actx) actx=new(window.AudioContext||window.webkitAudioContext)(); }
+
+function tone(freq, type, dur, vol=.22, delay=0){
+  if(!actx) return;
+  const o=actx.createOscillator(), g=actx.createGain();
+  o.connect(g); g.connect(actx.destination);
+  o.type=type; o.frequency.value=freq;
+  const t=actx.currentTime+delay;
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(vol,t+.01);
+  g.gain.exponentialRampToValueAtTime(.001,t+dur);
+  o.start(t); o.stop(t+dur);
+}
+
+function noise(dur, vol=.3, cut=1000){
+  if(!actx) return;
+  const n=Math.floor(actx.sampleRate*dur), b=actx.createBuffer(1,n,actx.sampleRate);
+  const d=b.getChannelData(0); for(let i=0;i<n;i++) d[i]=Math.random()*2-1;
+  const s=actx.createBufferSource(), f=actx.createBiquadFilter(), g=actx.createGain();
+  f.frequency.value=cut; s.buffer=b;
+  s.connect(f); f.connect(g); g.connect(actx.destination);
+  g.gain.setValueAtTime(vol,actx.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+dur);
+  s.start();
+}
+
+const snd = {
+  crystal(){ [523,698,880,1175].forEach((f,i)=>tone(f,'sine',.12,.2,i*.055)); },
+  pulse(){ tone(660,'sine',.07,.3); tone(1100,'triangle',.18,.18,.04); noise(.06,.12,5000); },
+  nearMiss(){ tone(180,'sawtooth',.08,.14); noise(.05,.1,900); },
+  combo(n){ const f=200+Math.min(n,14)*50; tone(f,'sine',.25,.28); tone(f*1.5,'triangle',.12,.14,.08); },
+  heartLost(){ tone(220,'sawtooth',.15,.28); tone(150,'square',.26,.22,.1); },
+  death(){
+    noise(.7,.45,700);
+    if(!actx) return;
+    const o=actx.createOscillator(),g=actx.createGain();
+    o.connect(g); g.connect(actx.destination); o.type='sawtooth';
+    o.frequency.setValueAtTime(380,actx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(28,actx.currentTime+1.1);
+    g.gain.setValueAtTime(.38,actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+1.1);
+    o.start(); o.stop(actx.currentTime+1.1);
+  },
+  startAmb(){
+    if(!actx) return;
+    [[55,.07],[82.4,.035],[110,.022]].forEach(([f,v])=>{
+      const o=actx.createOscillator(),g=actx.createGain();
+      o.type='sine'; o.frequency.value=f;
+      o.connect(g); g.connect(actx.destination);
+      g.gain.value=v; o.start(); ambNodes.push(o);
+    });
+  },
+  stopAmb(){ ambNodes.forEach(o=>{try{o.stop()}catch(e){}});  ambNodes=[]; },
+};
+
+// ══════════════════════════════════════════
+// TUNNEL CHUNKS
+// ══════════════════════════════════════════
+let chunkZ=0;
+const chunks=[], obsPool=[], cryPool=[];
+
+function buildChunk(startZ) {
+  const b=BIOMES[G.biome];
+  const grp=new THREE.Group();
+
+  // Main tube (back-face so interior visible)
+  const tGeo=new THREE.CylinderGeometry(C.TR,C.TR,C.CHUNK_LEN,38,1,true);
+  const tMat=new THREE.MeshStandardMaterial({
+    color:b.wall, emissive:new THREE.Color(b.glow).multiplyScalar(.12),
+    side:THREE.BackSide, roughness:.85, metalness:.05,
+  });
+  const tube=new THREE.Mesh(tGeo,tMat);
+  tube.rotation.x=Math.PI/2; grp.add(tube);
+
+  // Neon rings every 20 units
+  for(let z=12;z<C.CHUNK_LEN;z+=20){
+    const rGeo=new THREE.TorusGeometry(C.TR,.042,8,38);
+    const rMat=new THREE.MeshBasicMaterial({color:b.glow,transparent:true,opacity:.35});
+    const ring=new THREE.Mesh(rGeo,rMat);
+    ring.position.z=z-C.CHUNK_LEN/2; grp.add(ring);
+  }
+
+  // 6 lane lines along the wall
+  for(let a=0;a<6;a++){
+    const angle=(a/6)*Math.PI*2;
+    const px=Math.sin(angle)*(C.TR-.06), py=Math.cos(angle)*(C.TR-.06);
+    const pts=[new THREE.Vector3(px,py,-C.CHUNK_LEN/2), new THREE.Vector3(px,py,C.CHUNK_LEN/2)];
+    grp.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineBasicMaterial({color:b.glow,transparent:true,opacity:.14})
+    ));
+  }
+
+  grp.position.set(0,0,startZ+C.CHUNK_LEN/2);
+  scene.add(grp);
+
+  const obs=spawnObs(startZ);
+  const cry=spawnCry(startZ);
+  chunks.push({grp,startZ,endZ:startZ+C.CHUNK_LEN,obs,cry});
+}
+
+function manageChunks(){
+  const cz=-camera.position.z;
+  while(chunkZ<cz+C.CHUNK_LEN*2.2){ buildChunk(chunkZ); chunkZ+=C.CHUNK_LEN; }
+  for(let i=chunks.length-1;i>=0;i--){
+    if(chunks[i].endZ<cz-25){
+      scene.remove(chunks[i].grp);
+      chunks[i].obs.forEach(o=>{o.mesh.visible=false;obsPool.push(o.mesh);});
+      chunks[i].cry.forEach(c=>{if(!c.hit){c.mesh.visible=false;cryPool.push(c.mesh);}});
+      chunks.splice(i,1);
     }
   }
-  </script>
+}
 
-  <script type="module">
-    import * as THREE from 'three';
+// ══════════════════════════════════════════
+// OBSTACLES  — WALL and PILLAR
+// ══════════════════════════════════════════
+function newWallMesh() {
+  const grp=new THREE.Group();
+  const mat=new THREE.MeshStandardMaterial({color:0xff1a44,emissive:0xff0033,emissiveIntensity:1.3,roughness:.25});
+  const L=new THREE.Mesh(new THREE.BoxGeometry(2.2,.52,.32),mat);
+  const R=L.clone();
+  grp.add(L,R);
+  grp.userData={type:'wall',L,R};
+  scene.add(grp); return grp;
+}
 
-    // ─── Constants ───────────────────────────────────────────────
-    const TUNNEL_RADIUS   = 4.5;
-    const TUNNEL_SEGS     = 7;
-    const TUNNEL_LENGTH   = 300;   // one chunk length
-    const BALL_RADIUS     = 0.28;
-    const BASE_SPEED      = 18;
-    const SPEED_INCREMENT = 0.6;   // per 100m
-    const PULSE_COST      = 0.28;
-    const ENERGY_REGEN    = 0.012; // per frame (0.7/s @60fps)
-    const CRYSTAL_ENERGY  = 0.35;
-    const FOG_NEAR_BASE   = 8;
-    const FOG_FAR_BASE    = 28;
-    const PULSE_FOG_FAR   = 58;
-    const PULSE_DURATION  = 0.55;  // seconds
-    const SWIPE_SENSITIVITY = 0.018;
-    const LATERAL_SMOOTHING = 0.14;
-    const CAMERA_TILT_AMOUNT= 0.12;
-    const TRAIL_COUNT       = 26;
+function newPillarMesh() {
+  const grp=new THREE.Group();
+  const mat=new THREE.MeshStandardMaterial({color:0xff2200,emissive:0xff1100,emissiveIntensity:1.6,roughness:.15,metalness:.5});
+  const core=new THREE.Mesh(new THREE.OctahedronGeometry(.55,1),mat);
+  const ring=new THREE.Mesh(
+    new THREE.TorusGeometry(.9,.06,6,24),
+    new THREE.MeshBasicMaterial({color:0xff4400,transparent:true,opacity:.6})
+  );
+  ring.rotation.x=Math.PI/2;
+  grp.add(core,ring);
+  grp.userData={type:'pillar',core,ring,rotSpeed:.8+Math.random()*1.2};
+  scene.add(grp); return grp;
+}
 
-    // Biomes
-    const BIOMES = [
-      { name: 'النفق الكوني',   sub: 'السايبر الأزرق',   wallColor: 0x003366, glowColor: 0x00c8ff, fogColor: 0x001122, ballColor: 0x00e5ff, crystalColor: 0xffd700 },
-      { name: 'الكهف البركاني', sub: 'الأعماق المتوهجة',  wallColor: 0x330d00, glowColor: 0xff4500, fogColor: 0x1a0500, ballColor: 0xff6030, crystalColor: 0xffaa00 },
-      { name: 'الجليد الأبدي',  sub: 'البرد المتبلور',    wallColor: 0x001133, glowColor: 0x88aaff, fogColor: 0x000a1a, ballColor: 0xaaddff, crystalColor: 0x00ffee },
-      { name: 'الكون الذهبي',   sub: 'ما وراء الفضاء',   wallColor: 0x1a1000, glowColor: 0xffd700, fogColor: 0x0a0800, ballColor: 0xffd700, crystalColor: 0x00ffcc },
-    ];
+function getObsMesh(type) {
+  for(let i=obsPool.length-1;i>=0;i--)
+    if(obsPool[i].userData.type===type) return obsPool.splice(i,1)[0];
+  return type==='wall'?newWallMesh():newPillarMesh();
+}
 
-    // ─── State ───────────────────────────────────────────────────
-    let gameState = 'start'; // start | playing | dead
-    let score = 0, bestScore = 0;
-    let energy = 1.0;
-    let combo = 0, comboTimer = 0;
-    let pulsing = false, pulseTimer = 0;
-    let speed = BASE_SPEED;
-    let totalDist = 0;
-    let currentBiomeIdx = 0;
-    let lastBiomeDist = 0;
-    let ballVelX = 0;
-    let targetX = 0;
-    let isDead = false;
-    let slowMo = 1.0, slowMoTimer = 0;
-    let nearMiss = false, nearMissTimer = 0;
+function spawnObs(startZ) {
+  const obs=[];
+  const density=.88+Math.min(G.dist/600,.45);
+  let z=startZ+32;
+  while(z<startZ+C.CHUNK_LEN-22){
+    if(Math.random()<density){
+      const isWall=Math.random()<.62;
+      const mesh=getObsMesh(isWall?'wall':'pillar');
+      mesh.visible=true; mesh.userData.active=true;
 
-    // ─── Three.js Setup ──────────────────────────────────────────
-    const canvas = document.getElementById('game-canvas');
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = false;
-
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 300);
-
-    // ─── Fog ─────────────────────────────────────────────────────
-    scene.fog = new THREE.Fog(0x001122, FOG_NEAR_BASE, FOG_FAR_BASE);
-    scene.background = new THREE.Color(0x000a14);
-
-    // ─── Lighting ────────────────────────────────────────────────
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.08);
-    scene.add(ambientLight);
-
-    const ballLight = new THREE.PointLight(0x00c8ff, 3.5, 12);
-    scene.add(ballLight);
-
-    const pulseLight = new THREE.PointLight(0x00c8ff, 0, 40);
-    scene.add(pulseLight);
-
-    // ─── Ball ────────────────────────────────────────────────────
-    const ballGeo = new THREE.SphereGeometry(BALL_RADIUS, 24, 24);
-    const ballMat = new THREE.MeshStandardMaterial({
-      color: 0x00e5ff,
-      emissive: 0x00b8e0,
-      emissiveIntensity: 1.4,
-      roughness: 0.1,
-      metalness: 0.6,
-    });
-    const ballMesh = new THREE.Mesh(ballGeo, ballMat);
-    ballMesh.position.set(0, 0, 0);
-    scene.add(ballMesh);
-
-    // ─── Trail ───────────────────────────────────────────────────
-    const trailParticles = [];
-    for (let i = 0; i < TRAIL_COUNT; i++) {
-      const s = (1 - i / TRAIL_COUNT) * 0.18;
-      const tGeo = new THREE.SphereGeometry(s, 6, 6);
-      const tMat = new THREE.MeshBasicMaterial({ color: 0x00c8ff, transparent: true, opacity: (1 - i / TRAIL_COUNT) * 0.55 });
-      const t = new THREE.Mesh(tGeo, tMat);
-      t.visible = false;
-      scene.add(t);
-      trailParticles.push({ mesh: t, life: 0 });
-    }
-    let trailIdx = 0;
-    let trailTimer = 0;
-
-    // ─── Shockwave ring ──────────────────────────────────────────
-    const shockGeo = new THREE.RingGeometry(0.1, 0.3, 32);
-    const shockMat = new THREE.MeshBasicMaterial({ color: 0x00c8ff, transparent: true, opacity: 0, side: THREE.DoubleSide });
-    const shockRing = new THREE.Mesh(shockGeo, shockMat);
-    shockRing.rotation.x = Math.PI / 2;
-    scene.add(shockRing);
-    let shockScale = 1, shockLife = 0;
-
-    // ─── Tunnel chunks ───────────────────────────────────────────
-    const chunks = [];
-    let chunkZ = 0; // next spawn Z (positive = in front of camera)
-
-    function buildChunk(startZ) {
-      const group = new THREE.Group();
-
-      // Tube geometry (open-ended cylinder)
-      const tubeGeo = new THREE.CylinderGeometry(TUNNEL_RADIUS, TUNNEL_RADIUS, TUNNEL_LENGTH, TUNNEL_SEGS * 2, 1, true);
-      const b = currentBiomeIdx < BIOMES.length ? BIOMES[currentBiomeIdx] : BIOMES[0];
-      const tubeMat = new THREE.MeshStandardMaterial({
-        color: b.wallColor,
-        emissive: b.glowColor,
-        emissiveIntensity: 0.18,
-        side: THREE.BackSide,
-        roughness: 0.9,
-        metalness: 0.0,
-        wireframe: false,
-      });
-
-      // Wireframe overlay for neon edge effect
-      const wireMat = new THREE.MeshBasicMaterial({ color: b.glowColor, wireframe: true, transparent: true, opacity: 0.12 });
-      const wireMesh = new THREE.Mesh(tubeGeo, wireMat);
-      const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
-      tubeMesh.rotation.x = Math.PI / 2;
-      wireMesh.rotation.x = Math.PI / 2;
-
-      group.add(tubeMesh);
-      group.add(wireMesh);
-
-      // Neon rings every 20 units
-      for (let z = 10; z < TUNNEL_LENGTH; z += 20) {
-        const ringGeo = new THREE.TorusGeometry(TUNNEL_RADIUS, 0.05, 6, TUNNEL_SEGS * 2);
-        const ringMat = new THREE.MeshBasicMaterial({ color: b.glowColor, transparent: true, opacity: 0.35 });
-        const ring = new THREE.Mesh(ringGeo, ringMat);
-        ring.position.z = z - TUNNEL_LENGTH / 2;
-        group.add(ring);
+      if(isWall){
+        const gapW=Math.max(.75, 1.05+Math.random()*.55-G.dist/1800);
+        const gapX=(Math.random()-.5)*C.LATMAX*1.3;
+        mesh.userData.L.position.set(gapX-gapW/2-1.1,0,0);
+        mesh.userData.R.position.set(gapX+gapW/2+1.1,0,0);
+        mesh.userData.gapX=gapX; mesh.userData.gapW=gapW;
+        mesh.userData.currentGapX=gapX;
+        mesh.userData.slides=Math.random()<.28+G.dist/2200;
+        mesh.userData.slideSpd=(Math.random()<.5?1:-1)*(.4+Math.random()*.7);
+        mesh.userData.slidePhase=Math.random()*Math.PI*2;
+        mesh.position.set(0,0,-z);
+      } else {
+        const px=(Math.random()-.5)*C.LATMAX*1.4;
+        mesh.position.set(px,0,-z);
+        mesh.userData.pillarX=px;
       }
-
-      group.position.set(0, 0, startZ + TUNNEL_LENGTH / 2);
-      group.rotation.x = 0;
-      scene.add(group);
-
-      const obstacles = spawnObstacles(startZ, TUNNEL_LENGTH);
-      const crystals = spawnCrystals(startZ, TUNNEL_LENGTH);
-
-      chunks.push({ group, startZ, endZ: startZ + TUNNEL_LENGTH, obstacles, crystals });
+      obs.push({mesh,z,type:isWall?'wall':'pillar'});
     }
+    z+=15+Math.random()*18;
+  }
+  return obs;
+}
 
-    // ─── Obstacle system ─────────────────────────────────────────
-    const obstaclePool = [];
-    function getObstacle() {
-      return obstaclePool.pop() || createObstacleMesh();
+// ══════════════════════════════════════════
+// CRYSTALS
+// ══════════════════════════════════════════
+function newCryMesh() {
+  const mat=new THREE.MeshStandardMaterial({
+    color:0xffd700,emissive:0xffaa00,emissiveIntensity:2.6,
+    roughness:0,metalness:.9,transparent:true,opacity:.93,
+  });
+  const mesh=new THREE.Mesh(new THREE.OctahedronGeometry(.21,0),mat);
+  mesh.add(new THREE.PointLight(0xffd700,1.8,4));
+  scene.add(mesh); return mesh;
+}
+
+function spawnCry(startZ) {
+  const cry=[]; let z=startZ+18;
+  while(z<startZ+C.CHUNK_LEN-12){
+    if(Math.random()<.26){
+      const m=cryPool.pop()||newCryMesh();
+      m.position.set((Math.random()-.5)*C.LATMAX*1.5,0,-z);
+      m.visible=true;
+      cry.push({mesh:m,z,hit:false});
     }
+    z+=18+Math.random()*22;
+  }
+  return cry;
+}
 
-    function createObstacleMesh() {
-      const group = new THREE.Group();
+// ══════════════════════════════════════════
+// COLLISION
+// ══════════════════════════════════════════
+function checkCollisions() {
+  if(G.invinc) return;
+  const bx=ballMesh.position.x, bz=-ballMesh.position.z, M=C.BR+.07;
 
-      // Wall with gap
-      const wallLeft = new THREE.Mesh(
-        new THREE.BoxGeometry(1.6, 0.45, 0.3),
-        new THREE.MeshStandardMaterial({ color: 0xff2244, emissive: 0xff0033, emissiveIntensity: 0.8, roughness: 0.3 })
-      );
-      const wallRight = wallLeft.clone();
-      group.add(wallLeft, wallRight);
-      group.userData.wallLeft = wallLeft;
-      group.userData.wallRight = wallRight;
-      group.userData.type = 'wall';
-
-      // Spinning cube
-      const spinCube = new THREE.Mesh(
-        new THREE.BoxGeometry(0.55, 0.55, 0.55),
-        new THREE.MeshStandardMaterial({ color: 0xff4400, emissive: 0xff2200, emissiveIntensity: 1.2, roughness: 0.2, metalness: 0.5 })
-      );
-      group.userData.spinCube = spinCube;
-
-      scene.add(group);
-      return group;
-    }
-
-    function spawnObstacles(startZ, length) {
-      const obs = [];
-      const densityBase = 0.9 + (totalDist / 500) * 0.4;
-
-      let z = startZ + 30;
-      while (z < startZ + length - 20) {
-        if (Math.random() < densityBase) {
-          const type = Math.random() < 0.62 ? 'wall' : 'cube';
-          const obj = getObstacle();
-          obj.userData.type = type;
-          obj.userData.active = true;
-
-          if (type === 'wall') {
-            const gapPos = (Math.random() - 0.5) * (TUNNEL_RADIUS * 1.1);
-            const gapWidth = 1.0 + Math.random() * 0.6 - (totalDist / 800) * 0.25;
-            obj.userData.wallLeft.visible = true;
-            obj.userData.wallRight.visible = true;
-            obj.userData.spinCube.visible = false;
-            if (obj.userData.spinCube.parent === obj) obj.remove(obj.userData.spinCube);
-
-            obj.userData.wallLeft.position.set(gapPos - gapWidth / 2 - 0.8, 0, 0);
-            obj.userData.wallRight.position.set(gapPos + gapWidth / 2 + 0.8, 0, 0);
-            obj.userData.gapPos = gapPos;
-            obj.userData.gapWidth = gapWidth;
-          } else {
-            obj.userData.wallLeft.visible = false;
-            obj.userData.wallRight.visible = false;
-            if (obj.userData.spinCube.parent !== obj) obj.add(obj.userData.spinCube);
-            obj.userData.spinCube.visible = true;
-            obj.userData.spinCube.position.set((Math.random() - 0.5) * TUNNEL_RADIUS * 1.5, 0, 0);
-            obj.userData.spinCube.rotation.set(0, 0, 0);
-          }
-
-          obj.position.set(0, 0, -(z));
-          obs.push({ mesh: obj, z });
-        }
-        z += 14 + Math.random() * 14;
-      }
-      return obs;
-    }
-
-    // ─── Crystal system ──────────────────────────────────────────
-    const crystalPool = [];
-
-    function getCrystal() {
-      return crystalPool.pop() || createCrystalMesh();
-    }
-
-    function createCrystalMesh() {
-      const geo = new THREE.OctahedronGeometry(0.22, 0);
-      const mat = new THREE.MeshStandardMaterial({
-        color: 0xffd700, emissive: 0xffaa00,
-        emissiveIntensity: 2.0, roughness: 0.0, metalness: 0.8,
-        transparent: true, opacity: 0.92,
-      });
-      const mesh = new THREE.Mesh(geo, mat);
-      const light = new THREE.PointLight(0xffd700, 1.8, 4);
-      mesh.add(light);
-      scene.add(mesh);
-      return mesh;
-    }
-
-    function spawnCrystals(startZ, length) {
-      const crys = [];
-      let z = startZ + 20;
-      while (z < startZ + length - 10) {
-        if (Math.random() < 0.28) {
-          const c = getCrystal();
-          c.position.set((Math.random() - 0.5) * TUNNEL_RADIUS * 1.3, 0, -(z));
-          c.visible = true;
-          c.userData.collected = false;
-          c.userData.z = z;
-          crys.push({ mesh: c, z, collected: false });
-        }
-        z += 18 + Math.random() * 18;
-      }
-      return crys;
-    }
-
-    // ─── Camera ──────────────────────────────────────────────────
-    camera.position.set(0, 1.2, 5);
-    camera.lookAt(0, 0, -10);
-    let camTilt = 0;
-
-    // ─── Input handling ──────────────────────────────────────────
-    let touchStartX = 0, touchLastX = 0, isSwiping = false;
-    let touchDx = 0;
-
-    canvas.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      touchStartX = e.touches[0].clientX;
-      touchLastX = touchStartX;
-      isSwiping = false;
-      touchDx = 0;
-    }, { passive: false });
-
-    canvas.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      const dx = e.touches[0].clientX - touchLastX;
-      touchDx = dx;
-      touchLastX = e.touches[0].clientX;
-      if (Math.abs(e.touches[0].clientX - touchStartX) > 8) isSwiping = true;
-    }, { passive: false });
-
-    canvas.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      if (!isSwiping && gameState === 'playing') {
-        doPulse();
-      }
-      touchDx = 0;
-      isSwiping = false;
-    }, { passive: false });
-
-    // Mouse / desktop fallback
-    let mouseDown = false, mouseStartX = 0, mouseLastX = 0, mouseSwiping = false, mouseDx = 0;
-
-    canvas.addEventListener('mousedown', (e) => {
-      mouseDown = true;
-      mouseStartX = e.clientX;
-      mouseLastX = e.clientX;
-      mouseSwiping = false;
-      mouseDx = 0;
-    });
-
-    canvas.addEventListener('mousemove', (e) => {
-      if (!mouseDown) return;
-      mouseDx = e.clientX - mouseLastX;
-      mouseLastX = e.clientX;
-      if (Math.abs(e.clientX - mouseStartX) > 8) mouseSwiping = true;
-    });
-
-    canvas.addEventListener('mouseup', () => {
-      if (!mouseSwiping && gameState === 'playing') doPulse();
-      mouseDown = false;
-      mouseDx = 0;
-      mouseSwiping = false;
-    });
-
-    canvas.addEventListener('mouseleave', () => { mouseDown = false; mouseDx = 0; });
-
-    // ─── Pulse ───────────────────────────────────────────────────
-    function doPulse() {
-      if (energy < PULSE_COST) return;
-      energy = Math.max(0, energy - PULSE_COST);
-      pulsing = true;
-      pulseTimer = PULSE_DURATION;
-
-      // Shockwave
-      shockLife = 1.0;
-      shockScale = 1;
-      shockRing.position.copy(ballMesh.position);
-      shockMat.opacity = 0.8;
-
-      // Perfect pulse check (obstacle within 3m in front)
-      checkPerfectPulse();
-      updateEnergyUI();
-    }
-
-    function checkPerfectPulse() {
-      const bz = -ballMesh.position.z;
-      for (const chunk of chunks) {
-        for (const obs of chunk.obstacles) {
-          const d = obs.z - bz;
-          if (d > 0 && d < 4.5) {
-            triggerPerfectPulse();
-            return;
-          }
-        }
+  for(const ch of chunks){
+    for(const c of ch.cry){
+      if(c.hit) continue;
+      if(Math.abs(c.z-bz)<.65&&Math.abs(c.mesh.position.x-bx)<.58){
+        c.hit=true; c.mesh.visible=false;
+        G.energy=Math.min(1,G.energy+C.CRYSTAL_E);
+        G.combo=Math.min(G.combo+1,24);
+        snd.crystal(); showCombo();
+        burst(c.mesh.position,BIOMES[G.biome].crystal,0xffffff,14);
+        updEnergy();
       }
     }
 
-    function triggerPerfectPulse() {
-      slowMo = 0.28;
-      slowMoTimer = 0.55;
-      combo++;
-      showCombo();
+    for(const o of ch.obs){
+      if(!o.mesh.userData.active) continue;
+      const dz=Math.abs(o.z-bz);
+      if(dz>1.6) continue;
 
-      const flash = document.getElementById('perfect-flash');
-      flash.classList.add('flash');
-      setTimeout(() => flash.classList.remove('flash'), 120);
-    }
-
-    // ─── Biome management ────────────────────────────────────────
-    function checkBiomeTransition() {
-      const newBiomeIdx = Math.floor(totalDist / 600) % BIOMES.length;
-      if (newBiomeIdx !== currentBiomeIdx) {
-        currentBiomeIdx = newBiomeIdx;
-        const b = BIOMES[currentBiomeIdx];
-        scene.fog.color.setHex(b.fogColor);
-        scene.background.setHex(b.fogColor);
-        ballMat.color.setHex(b.ballColor);
-        ballMat.emissive.setHex(b.ballColor);
-        ballLight.color.setHex(b.glowColor);
-        showBiomeBanner(b);
-      }
-    }
-
-    function showBiomeBanner(b) {
-      const banner = document.getElementById('biome-banner');
-      document.getElementById('biome-name').textContent = b.name;
-      document.getElementById('biome-name').style.color = '#' + b.glowColor.toString(16).padStart(6, '0');
-      banner.classList.add('show');
-      setTimeout(() => banner.classList.remove('show'), 2400);
-    }
-
-    // ─── Chunk management ────────────────────────────────────────
-    function manageChunks() {
-      const camZ = -camera.position.z;
-
-      // Spawn new chunks ahead
-      while (chunkZ < camZ + TUNNEL_LENGTH * 1.5) {
-        buildChunk(chunkZ);
-        chunkZ += TUNNEL_LENGTH;
-      }
-
-      // Remove chunks behind camera
-      for (let i = chunks.length - 1; i >= 0; i--) {
-        if (chunks[i].endZ < camZ - 20) {
-          // Return obstacles/crystals to pool
-          for (const obs of chunks[i].obstacles) {
-            obs.mesh.userData.active = false;
-            obstaclePool.push(obs.mesh);
-          }
-          for (const c of chunks[i].crystals) {
-            if (!c.collected) crystalPool.push(c.mesh);
-            c.mesh.visible = false;
-          }
-          scene.remove(chunks[i].group);
-          chunks.splice(i, 1);
-        }
-      }
-    }
-
-    // ─── Collision detection ─────────────────────────────────────
-    function checkCollisions() {
-      const bx = ballMesh.position.x;
-      const bz = -ballMesh.position.z; // world Z of ball
-      const margin = BALL_RADIUS + 0.06;
-
-      for (const chunk of chunks) {
-        for (const obs of chunk.obstacles) {
-          if (!obs.mesh.userData.active) continue;
-          const dz = Math.abs(obs.z - bz);
-          if (dz > 1.2) continue;
-
-          if (obs.mesh.userData.type === 'wall') {
-            const gapPos = obs.mesh.userData.gapPos;
-            const gapWidth = obs.mesh.userData.gapWidth;
-            const inGap = Math.abs(bx - gapPos) < (gapWidth / 2 - margin * 0.7);
-            if (!inGap) {
-              triggerDeath();
-              return;
-            } else if (dz < 0.5) {
-              // Near miss
-              nearMiss = true;
-              nearMissTimer = 0.3;
-              combo++;
-              showCombo();
-            }
-          } else {
-            const cubeX = obs.mesh.userData.spinCube.position.x + obs.mesh.position.x;
-            if (Math.abs(bx - cubeX) < margin + 0.3) {
-              triggerDeath();
-              return;
-            }
-          }
-        }
-
-        // Crystals
-        for (const c of chunk.crystals) {
-          if (c.collected) continue;
-          const dz = Math.abs(c.z - bz);
-          const dx = Math.abs(c.mesh.position.x - bx);
-          if (dz < 0.6 && dx < 0.55) {
-            c.collected = true;
-            c.mesh.visible = false;
-            energy = Math.min(1.0, energy + CRYSTAL_ENERGY);
-            combo++;
-            showCombo();
-            updateEnergyUI();
-          }
-        }
-      }
-    }
-
-    // ─── Death ───────────────────────────────────────────────────
-    function triggerDeath() {
-      if (isDead) return;
-      isDead = true;
-      gameState = 'dead';
-
-      const flash = document.getElementById('death-flash');
-      flash.classList.add('flash');
-      setTimeout(() => flash.classList.remove('flash'), 200);
-
-      // Screen shake (camera offset)
-      let shakes = 0;
-      const shakeInterval = setInterval(() => {
-        camera.position.x = (Math.random() - 0.5) * 0.3;
-        camera.position.y = 1.2 + (Math.random() - 0.5) * 0.2;
-        shakes++;
-        if (shakes > 8) {
-          clearInterval(shakeInterval);
-          camera.position.x = 0;
-          camera.position.y = 1.2;
-          showGameOver();
-        }
-      }, 40);
-    }
-
-    function showGameOver() {
-      const dist = Math.floor(totalDist);
-      const isNew = dist > bestScore;
-      if (isNew) bestScore = dist;
-
-      document.getElementById('go-dist').textContent = dist;
-      document.getElementById('go-best-val').textContent = bestScore;
-      document.getElementById('new-best-badge').classList.toggle('show', isNew);
-
-      document.getElementById('gameover-screen').classList.remove('hidden');
-    }
-
-    // ─── UI helpers ──────────────────────────────────────────────
-    function updateEnergyUI() {
-      document.getElementById('energy-bar').style.width = (energy * 100) + '%';
-    }
-
-    function updateScoreUI() {
-      const el = document.getElementById('score');
-      el.textContent = Math.floor(totalDist);
-      document.getElementById('best').textContent = Math.max(Math.floor(totalDist), bestScore);
-    }
-
-    let comboClearTimer = null;
-    function showCombo() {
-      if (combo <= 1) return;
-      const el = document.getElementById('combo-pop');
-      el.textContent = '×' + combo;
-      el.classList.remove('show');
-      void el.offsetWidth;
-      el.classList.add('show');
-      clearTimeout(comboClearTimer);
-      comboClearTimer = setTimeout(() => el.classList.remove('show'), 900);
-    }
-
-    function showMilestone(text) {
-      const el = document.getElementById('milestone');
-      el.textContent = text;
-      el.classList.add('show');
-      setTimeout(() => el.classList.remove('show'), 1800);
-    }
-
-    // ─── Game init ───────────────────────────────────────────────
-    function initGame() {
-      isDead = false;
-      score = 0;
-      energy = 1.0;
-      combo = 0;
-      pulsing = false;
-      pulseTimer = 0;
-      totalDist = 0;
-      speed = BASE_SPEED;
-      currentBiomeIdx = 0;
-      lastBiomeDist = 0;
-      slowMo = 1.0;
-      slowMoTimer = 0;
-      ballVelX = 0;
-      targetX = 0;
-
-      // Clear chunks
-      for (const ch of chunks) {
-        scene.remove(ch.group);
-        for (const obs of ch.obstacles) { obs.mesh.userData.active = false; obstaclePool.push(obs.mesh); }
-        for (const c of ch.crystals) { c.mesh.visible = false; crystalPool.push(c.mesh); }
-      }
-      chunks.length = 0;
-      chunkZ = 0;
-
-      ballMesh.position.set(0, 0, 0);
-      camera.position.set(0, 1.2, 5);
-
-      // Reset biome
-      const b = BIOMES[0];
-      scene.fog.color.setHex(b.fogColor);
-      scene.background.setHex(b.fogColor);
-      ballMat.color.setHex(b.ballColor);
-      ballMat.emissive.setHex(b.ballColor);
-      ballLight.color.setHex(b.glowColor);
-
-      // Pre-spawn
-      manageChunks();
-
-      updateEnergyUI();
-      updateScoreUI();
-    }
-
-    // ─── Clock & loop ────────────────────────────────────────────
-    const clock = new THREE.Clock();
-    let prevMilestone = 0;
-
-    function animate() {
-      requestAnimationFrame(animate);
-
-      const rawDt = Math.min(clock.getDelta(), 0.05);
-
-      if (gameState !== 'playing') {
-        renderer.render(scene, camera);
-        return;
-      }
-
-      // Slow-motion
-      let dt = rawDt;
-      if (slowMoTimer > 0) {
-        slowMoTimer -= rawDt;
-        slowMo = slowMoTimer > 0 ? 0.28 : 1.0;
-      }
-      dt *= slowMo;
-
-      // ── Speed escalation
-      speed = BASE_SPEED + (totalDist / 100) * SPEED_INCREMENT;
-      speed = Math.min(speed, 60);
-
-      // ── Move ball forward (camera forward = -z)
-      const moveZ = speed * dt;
-      ballMesh.position.z -= moveZ;
-      totalDist += moveZ;
-
-      // ── Lateral movement
-      const inputDx = (touchDx + mouseDx) * SWIPE_SENSITIVITY * (speed / BASE_SPEED);
-      targetX += inputDx;
-      targetX = Math.max(-TUNNEL_RADIUS + BALL_RADIUS + 0.5, Math.min(TUNNEL_RADIUS - BALL_RADIUS - 0.5, targetX));
-      ballMesh.position.x += (targetX - ballMesh.position.x) * LATERAL_SMOOTHING;
-      touchDx *= 0.7;
-      mouseDx *= 0.7;
-
-      // ── Camera follow
-      camTilt += (inputDx * CAMERA_TILT_AMOUNT - camTilt) * 0.1;
-      camera.position.x += (ballMesh.position.x * 0.85 - camera.position.x) * 0.12;
-      camera.position.z = ballMesh.position.z + 5;
-      camera.position.y = 1.2;
-      camera.rotation.z = -camTilt;
-      camera.lookAt(ballMesh.position.x * 0.4, 0.1, ballMesh.position.z - 14);
-
-      // ── Ball lights
-      ballLight.position.copy(ballMesh.position);
-      pulseLight.position.copy(ballMesh.position);
-
-      // ── Trail
-      trailTimer -= dt;
-      if (trailTimer <= 0) {
-        trailTimer = 0.018;
-        const t = trailParticles[trailIdx % TRAIL_COUNT];
-        t.mesh.position.copy(ballMesh.position);
-        t.mesh.visible = true;
-        t.life = 1.0;
-        trailIdx++;
-      }
-      for (const t of trailParticles) {
-        if (!t.mesh.visible) continue;
-        t.life -= dt * 3.2;
-        if (t.life <= 0) { t.mesh.visible = false; continue; }
-        t.mesh.material.opacity = t.life * 0.5;
-        t.mesh.scale.setScalar(t.life);
-      }
-
-      // ── Pulse
-      if (pulsing) {
-        pulseTimer -= dt;
-        const t = pulseTimer / PULSE_DURATION;
-        scene.fog.far = FOG_NEAR_BASE + (FOG_FAR_BASE - FOG_NEAR_BASE) * t + (PULSE_FOG_FAR - FOG_FAR_BASE) * (1 - t);
-        pulseLight.intensity = (1 - t) * 6;
-        if (pulseTimer <= 0) {
-          pulsing = false;
-          scene.fog.far = FOG_FAR_BASE;
-          pulseLight.intensity = 0;
+      if(o.type==='wall'){
+        const gx=o.mesh.userData.currentGapX;
+        const gw=o.mesh.userData.gapW;
+        const inGap=Math.abs(bx-gx)<gw/2-M*.4;
+        if(!inGap&&dz<.95){
+          hitBy(o);
+        } else if(inGap&&dz<.5&&Math.abs(bx-gx)>gw/2*.6){
+          // Near miss
+          G.combo=Math.min(G.combo+1,24);
+          snd.nearMiss(); showCombo();
         }
       } else {
-        scene.fog.far += (FOG_FAR_BASE - scene.fog.far) * 0.05;
+        const px=o.mesh.userData.pillarX;
+        if(Math.abs(bx-px)<.8+M&&dz<.85) hitBy(o);
       }
-
-      // ── Shockwave
-      if (shockLife > 0) {
-        shockLife -= dt * 2.4;
-        shockScale += dt * 14;
-        shockRing.scale.setScalar(shockScale);
-        shockRing.position.copy(ballMesh.position);
-        shockMat.opacity = Math.max(0, shockLife * 0.7);
-        if (shockLife <= 0) shockMat.opacity = 0;
-      }
-
-      // ── Spin cubes
-      for (const chunk of chunks) {
-        for (const obs of chunk.obstacles) {
-          if (obs.mesh.userData.type === 'cube' && obs.mesh.userData.spinCube.visible) {
-            obs.mesh.userData.spinCube.rotation.x += dt * 2.2;
-            obs.mesh.userData.spinCube.rotation.y += dt * 1.6;
-          }
-        }
-        // Animate crystals
-        for (const c of chunk.crystals) {
-          if (!c.collected) {
-            c.mesh.rotation.y += dt * 2.0;
-            c.mesh.position.y = Math.sin(Date.now() * 0.002 + c.z) * 0.2;
-          }
-        }
-      }
-
-      // ── Energy regen
-      energy = Math.min(1.0, energy + ENERGY_REGEN * dt * 60);
-      updateEnergyUI();
-
-      // ── Collision
-      checkCollisions();
-
-      // ── Chunks
-      manageChunks();
-
-      // ── Biome
-      checkBiomeTransition();
-
-      // ── Score / milestones
-      updateScoreUI();
-      const m100 = Math.floor(totalDist / 100);
-      if (m100 > prevMilestone) {
-        prevMilestone = m100;
-        showMilestone('🏁 ' + (m100 * 100) + ' متر!');
-        speed; // Speed already escalates, no special effect needed
-      }
-
-      renderer.render(scene, camera);
     }
+  }
+}
 
-    // ─── Button handlers ─────────────────────────────────────────
-    document.getElementById('btn-start').addEventListener('click', () => {
-      document.getElementById('start-screen').classList.add('hidden');
-      gameState = 'playing';
-      initGame();
-    });
+function hitBy(o) {
+  o.mesh.userData.active=false;
+  G.lives--; G.combo=0;
+  G.invinc=true; G.invincT=C.INVTIME;
+  burst(ballMesh.position,BIOMES[G.biome].ball,0xffffff,G.lives>0?30:65);
+  G.shakeI=G.lives>0?.28:.7;
+  flash('death-flash');
+  if(G.lives<=0){ snd.death(); G.phase='dead'; setTimeout(()=>showGameOver(),1400); }
+  else { snd.heartLost(); updLives(); }
+}
 
-    document.getElementById('btn-retry').addEventListener('click', () => {
-      document.getElementById('gameover-screen').classList.add('hidden');
-      gameState = 'playing';
-      initGame();
-    });
+// ══════════════════════════════════════════
+// INPUT
+// ══════════════════════════════════════════
+let touchX0=0,touchXL=0,tdx=0,tswipe=false;
+let mdown=false,mx0=0,mxL=0,mdx=0,mswipe=false;
+let kL=false,kR=false;
 
-    // ─── Resize ──────────────────────────────────────────────────
-    window.addEventListener('resize', () => {
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-    });
+function setupInput(){
+  canvas.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    touchX0=touchXL=e.touches[0].clientX; tdx=0; tswipe=false;
+    if(G.phase==='start') doStart();
+  },{passive:false});
+  canvas.addEventListener('touchmove',e=>{
+    e.preventDefault();
+    tdx=e.touches[0].clientX-touchXL; touchXL=e.touches[0].clientX;
+    if(Math.abs(touchXL-touchX0)>7) tswipe=true;
+  },{passive:false});
+  canvas.addEventListener('touchend',e=>{
+    e.preventDefault();
+    if(!tswipe&&G.phase==='playing') doPulse();
+    tdx=0; tswipe=false;
+  },{passive:false});
 
-    // ─── Start ───────────────────────────────────────────────────
-    animate();
-  </script>
+  canvas.addEventListener('mousedown',e=>{
+    mdown=true; mx0=mxL=e.clientX; mdx=0; mswipe=false;
+    if(G.phase==='start') doStart();
+  });
+  canvas.addEventListener('mousemove',e=>{
+    if(!mdown) return;
+    mdx=e.clientX-mxL; mxL=e.clientX;
+    if(Math.abs(e.clientX-mx0)>7) mswipe=true;
+  });
+  canvas.addEventListener('mouseup',()=>{
+    if(!mswipe&&G.phase==='playing') doPulse();
+    mdown=false; mdx=0; mswipe=false;
+  });
+  canvas.addEventListener('mouseleave',()=>{ mdown=false; mdx=0; });
+
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowLeft'||e.key==='a') kL=true;
+    if(e.key==='ArrowRight'||e.key==='d') kR=true;
+    if(e.key===' '){
+      e.preventDefault();
+      if(G.phase==='playing')  doPulse();
+      if(G.phase==='start')    doStart();
+      if(G.phase==='over')     doRestart();
+    }
+  });
+  document.addEventListener('keyup',e=>{
+    if(e.key==='ArrowLeft'||e.key==='a') kL=false;
+    if(e.key==='ArrowRight'||e.key==='d') kR=false;
+  });
+}
+
+// ══════════════════════════════════════════
+// PULSE
+// ══════════════════════════════════════════
+function doPulse() {
+  if(G.energy<C.PULSE_COST) return;
+  G.energy-=C.PULSE_COST;
+  G.pulsing=true; G.pulseT=C.PULSE_DUR;
+  snd.pulse();
+  shockLife=1; shockScale=.5;
+  shockRing.position.copy(ballMesh.position);
+  shockMat.color.setHex(BIOMES[G.biome].glow);
+  // Perfect pulse: obstacle within 5m
+  const bz=-ballMesh.position.z;
+  for(const ch of chunks)
+    for(const o of ch.obs)
+      if(o.mesh.userData.active&&o.z-bz>0&&o.z-bz<5.5){
+        G.slowmo=.22; G.slowmoT=.65;
+        G.combo=Math.min(G.combo+2,24);
+        showCombo(); flash('perfect-flash');
+        return;
+      }
+}
+
+// ══════════════════════════════════════════
+// BIOME
+// ══════════════════════════════════════════
+function checkBiome(){
+  const idx=Math.floor(G.dist/C.BIOME_M)%BIOMES.length;
+  if(idx===G.biome) return;
+  G.biome=idx;
+  const b=BIOMES[idx];
+  scene.fog.color.setHex(b.fog); scene.background.setHex(b.fog);
+  ballMesh.material.color.setHex(b.ball); ballMesh.material.emissive.setHex(b.ball);
+  ballGlow.material.color.setHex(b.glow);
+  ballLight.color.setHex(b.glow); pulseLight.color.setHex(b.glow);
+  showBiome(b.name);
+}
+
+// ══════════════════════════════════════════
+// BALL MOVEMENT + CAMERA
+// ══════════════════════════════════════════
+let camTilt=0;
+
+function moveBall(dt){
+  const rawDx=(tdx+mdx)*.021;
+  const kDx=(kR?1:0)-(kL?1:0);
+  G.targetX+=rawDx+kDx*8*dt;
+  G.targetX=Math.max(-C.LATMAX,Math.min(C.LATMAX,G.targetX));
+  ballMesh.position.x+=(G.targetX-ballMesh.position.x)*C.LATSMOOTH;
+  ballMesh.position.z-=G.speed*dt;
+  ballMesh.rotation.z+=dt*2.5;
+  ballGlow.position.copy(ballMesh.position);
+  tdx*=.62; mdx*=.62;
+
+  const tx=ballMesh.position.x*.72;
+  camera.position.x+=(tx-camera.position.x)*.1;
+  camera.position.z=ballMesh.position.z+C.CAM_BACK;
+  camera.position.y=C.CAM_Y;
+  camTilt+=(rawDx*1.6-camTilt)*.09;
+  camera.rotation.z=-camTilt;
+  camera.lookAt(ballMesh.position.x*.3,.12,ballMesh.position.z-C.CAM_LOOK);
+
+  ballLight.position.copy(ballMesh.position);
+  pulseLight.position.copy(ballMesh.position);
+}
+
+// ══════════════════════════════════════════
+// GAME FLOW
+// ══════════════════════════════════════════
+function doStart(){
+  initAudio(); snd.startAmb();
+  document.getElementById('start-screen').classList.add('hidden');
+  initWorld(); G.phase='playing';
+  updLives(); updEnergy(); updScore();
+}
+
+function doRestart(){
+  document.getElementById('gameover-screen').classList.add('hidden');
+  snd.stopAmb(); snd.startAmb();
+  initWorld(); G.phase='playing';
+  updLives(); updEnergy(); updScore();
+}
+
+function initWorld(){
+  const savedBest=G.best; resetG(); G.best=savedBest; G.phase='playing';
+  for(const ch of chunks){
+    scene.remove(ch.grp);
+    ch.obs.forEach(o=>{o.mesh.visible=false;obsPool.push(o.mesh);});
+    ch.cry.forEach(c=>{c.mesh.visible=false;cryPool.push(c.mesh);});
+  }
+  chunks.length=0; chunkZ=0;
+  ballMesh.position.set(0,0,0); ballGlow.position.set(0,0,0);
+  camera.position.set(0,C.CAM_Y,C.CAM_BACK);
+  const b=BIOMES[0];
+  scene.fog.color.setHex(b.fog); scene.background.setHex(b.fog); scene.fog.far=C.FOG_F;
+  ballMesh.material.color.setHex(b.ball); ballMesh.material.emissive.setHex(b.ball);
+  ballGlow.material.color.setHex(b.glow);
+  ballLight.color.setHex(b.glow); pulseLight.color.setHex(b.glow); pulseLight.intensity=0;
+  shockMat.opacity=0;
+  manageChunks();
+}
+
+function showGameOver(){
+  const d=Math.floor(G.dist), isNew=d>G.best;
+  if(isNew){ G.best=d; localStorage.setItem('pm_best',String(d)); }
+  document.getElementById('go-dist').textContent=d;
+  document.getElementById('go-best-val').textContent=G.best;
+  document.getElementById('new-best').classList.toggle('show',isNew);
+  document.getElementById('gameover-screen').classList.remove('hidden');
+  snd.stopAmb(); G.phase='over';
+}
+
+// ══════════════════════════════════════════
+// UI
+// ══════════════════════════════════════════
+function updEnergy(){ document.getElementById('energy-bar').style.width=(G.energy*100)+'%'; }
+function updScore(){
+  document.getElementById('score').textContent=Math.floor(G.dist);
+  document.getElementById('best-val').textContent=Math.max(Math.floor(G.dist),G.best);
+  document.getElementById('speed-val').textContent=Math.round(G.speed)+' م/ث';
+}
+function updLives(){
+  for(let i=0;i<C.LIVES;i++) document.getElementById('h'+i).classList.toggle('dead',i>=G.lives);
+}
+let comboTimer=null;
+function showCombo(){
+  if(G.combo<2) return;
+  const el=document.getElementById('combo');
+  el.textContent='×'+G.combo;
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  snd.combo(G.combo);
+  clearTimeout(comboTimer); comboTimer=setTimeout(()=>el.classList.remove('show'),950);
+}
+function flash(id){
+  const el=document.getElementById(id);
+  el.classList.add('on'); setTimeout(()=>el.classList.remove('on'),160);
+}
+function showBiome(name){
+  const el=document.getElementById('biome');
+  document.getElementById('biome-name').textContent=name;
+  el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2600);
+}
+let mileTimer=null;
+function showMile(text){
+  const el=document.getElementById('milestone');
+  el.textContent='🏁 '+text; el.classList.add('show');
+  clearTimeout(mileTimer); mileTimer=setTimeout(()=>el.classList.remove('show'),1900);
+}
+
+// ══════════════════════════════════════════
+// MAIN LOOP
+// ══════════════════════════════════════════
+const clock=new THREE.Clock();
+
+function loop(){
+  requestAnimationFrame(loop);
+  const rawDt=Math.min(clock.getDelta(),.05);
+
+  if(G.phase!=='playing'){ composer.render(); return; }
+
+  if(G.slowmoT>0){ G.slowmoT-=rawDt; if(G.slowmoT<=0) G.slowmo=1; }
+  const dt=rawDt*G.slowmo;
+
+  G.speed=Math.min(C.SPD0+(G.dist/100)*C.SPDRAMP, C.SPDMAX);
+  moveBall(dt);
+  G.dist+=G.speed*dt;
+
+  // Invincibility blink
+  if(G.invinc){
+    G.invincT-=rawDt;
+    ballMesh.visible=ballGlow.visible=Math.sin(G.invincT*18)>0;
+    if(G.invincT<=0){ G.invinc=false; ballMesh.visible=ballGlow.visible=true; }
+  }
+
+  // Pulse fog expansion
+  if(G.pulsing){
+    G.pulseT-=rawDt;
+    const t=Math.max(0,G.pulseT/C.PULSE_DUR);
+    scene.fog.far=C.FOG_N+(C.FOG_F-C.FOG_N)*t+(C.PULSE_FOG-C.FOG_F)*(1-t);
+    pulseLight.intensity=(1-t)*9;
+    if(G.pulseT<=0){ G.pulsing=false; pulseLight.intensity=0; }
+  } else {
+    scene.fog.far+=(C.FOG_F-scene.fog.far)*.045;
+  }
+
+  // Shockwave expand
+  if(shockLife>0){
+    shockLife-=rawDt*2.3; shockScale+=rawDt*20;
+    shockRing.scale.setScalar(shockScale);
+    shockRing.position.copy(ballMesh.position);
+    shockMat.opacity=Math.max(0,shockLife*.72);
+  }
+
+  // Screen shake
+  if(G.shakeI>.001){
+    G.shakeI*=(1-C.SHAKE_DEC*rawDt);
+    camera.position.x+=(Math.random()-.5)*G.shakeI;
+    camera.position.y+=(Math.random()-.5)*G.shakeI;
+  }
+
+  G.energy=Math.min(1,G.energy+C.ENERGY_REG);
+  updEnergy();
+  updateTrail(dt);
+  updateParticles(dt);
+
+  // Animate obstacles
+  for(const ch of chunks){
+    for(const o of ch.obs){
+      if(!o.mesh.userData.active) continue;
+      if(o.type==='pillar'){
+        o.mesh.userData.core.rotation.y+=dt*1.4;
+        o.mesh.userData.ring.rotation.z+=dt*o.mesh.userData.rotSpeed;
+        const s=1+Math.sin(Date.now()*.003+o.z)*.08;
+        o.mesh.userData.core.scale.setScalar(s);
+      } else if(o.mesh.userData.slides){
+        const shift=Math.sin((G.dist/G.speed)*o.mesh.userData.slideSpd+o.mesh.userData.slidePhase)*1.4;
+        const gx=o.mesh.userData.gapX+shift;
+        const gw=o.mesh.userData.gapW;
+        o.mesh.userData.L.position.x=gx-gw/2-1.1;
+        o.mesh.userData.R.position.x=gx+gw/2+1.1;
+        o.mesh.userData.currentGapX=gx;
+      }
+    }
+    for(const c of ch.cry){
+      if(!c.hit){
+        c.mesh.rotation.y+=dt*2.3;
+        c.mesh.position.y=Math.sin(Date.now()*.002+c.z)*.22;
+      }
+    }
+  }
+
+  checkCollisions();
+  manageChunks();
+  checkBiome();
+  updScore();
+
+  const mile=Math.floor(G.dist/100);
+  if(mile>G.lastMile){ G.lastMile=mile; showMile(mile*100+' متر'); }
+
+  composer.render();
+}
+
+// ══════════════════════════════════════════
+// RESIZE + BOOT
+// ══════════════════════════════════════════
+window.addEventListener('resize',()=>{
+  renderer.setSize(innerWidth,innerHeight);
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  composer.setSize(innerWidth,innerHeight);
+  bloom.resolution.set(innerWidth,innerHeight);
+});
+
+document.getElementById('btn-start').addEventListener('click',doStart);
+document.getElementById('btn-retry').addEventListener('click',doRestart);
+setupInput();
+
+if(G.best>0) document.getElementById('best-val').textContent=G.best;
+loop();
+</script>
 </body>
 </html>
